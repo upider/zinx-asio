@@ -1,0 +1,12 @@
+{
+	"Name":"ZinxServerApp",
+	"Host":"127.0.0.1",
+	"TCPPort":9999,
+
+	"ZinxVersion":"V0.9",
+	"MaxConn":300,
+	"MaxPackageSize":512,
+	"IOWorkerPoolSize":1,
+	"TaskWorkerPoolSize":2,
+	"TaskWorkerQueueNum":1
+}
