@@ -4,6 +4,7 @@
 #include <vector>
 #include <inttypes.h>
 
+namespace zinx_asio {//namespace zinx_asio
 class Message {
     public:
         Message(uint32_t, const char*, size_t);
@@ -23,8 +24,8 @@ class Message {
         void setData(std::vector<char>&);
         //设置消息数组
         void setData(const char*, size_t);
-		//=
-		Message& operator=(const Message&);
+        //=
+        Message& operator=(const Message&);
     private:
         //消息ID
         uint32_t id_;
@@ -34,4 +35,5 @@ class Message {
         std::vector<char> data_;
 };
 
+}//namespace zinx_asio
 #endif /* MESSAGE_HPP */

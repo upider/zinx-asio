@@ -5,6 +5,8 @@
 #include "utils.hpp"
 #include "data_pack.hpp"
 
+namespace zinx_asio {//namespace zinx_asio
+
 DataPack::DataPack() {}
 DataPack::~DataPack () {}
 
@@ -75,3 +77,5 @@ Message DataPack::unpack(boost::asio::streambuf& dataBuf) {
     }
     return msg;
 }
+
+}//namespace zinx_asio

@@ -8,6 +8,8 @@
 
 #include "io_context_pool.hpp"
 
+namespace zinx_asio {//namespace zinx_asio
+
 io_context_pool::io_context_pool(std::size_t pool_size, std::size_t ioc_size)
     : threadNum_(pool_size), iocNum_(ioc_size), threads_(), next_io_context_(0) {
     if (pool_size == 0)
@@ -78,3 +80,5 @@ boost::asio::io_context& io_context_pool::getCtx() {
         next_io_context_ = 0;
     return io_context;
 }
+
+}//namespace zinx_asio

@@ -2,13 +2,12 @@
 #include <nlohmann/json.hpp>
 #include "utils.hpp"
 
-// for convenience
-using json = nlohmann::json;
+namespace zinx_asio {//namespace zinx_asio
 
 GlobalObject::GlobalObject() {
     //read a JSON file
     std::ifstream is("conf/zinx.json");
-    json obj;
+    nlohmann::json obj;
     is >> obj;
 
     Name = obj["Name"];
@@ -22,4 +21,7 @@ GlobalObject::GlobalObject() {
     TaskWorkerPoolSize = obj["TaskWorkerPoolSize"];
     TaskWorkerQueueNum = obj["TaskWorkerQueueNum"];
 }
+
 GlobalObject::~GlobalObject() {}
+
+}//namespace zinx_asio

@@ -6,9 +6,9 @@
 #include <memory>
 #include <boost/thread/shared_mutex.hpp>
 
+namespace zinx_asio {//namespace zinx_asio
 class Connection;
 typedef std::shared_ptr<Connection> Conn_ptr;
-//#include "connection.hpp"
 
 class ConnManager {
     public:
@@ -29,4 +29,5 @@ class ConnManager {
         boost::shared_mutex connsLock;
 };
 
+}//namespace zinx_asio
 #endif /* CONN_MANAGER_HPP */

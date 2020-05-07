@@ -12,6 +12,8 @@
 #include "conn_manager.hpp"
 #include "message_manager.hpp"
 
+namespace zinx_asio {//namespace zinx_asio
+
 class Server {
     public:
         Server();
@@ -79,4 +81,5 @@ class Server {
         uint32_t cid_ = 0;
 };
 
+}//namespace zinx_asio
 #endif /* SERVER_HPP */

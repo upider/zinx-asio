@@ -1,6 +1,8 @@
 #ifndef ROUTER_HPP
 #define ROUTER_HPP
 
+namespace zinx_asio {//namespace zinx_asio
+
 class Request;
 
 class Router {
@@ -12,4 +14,5 @@ class Router {
         virtual void postHandle(Request&) = 0;
 };
 
+}//namespace zinx_asio
 #endif /* ROUTER_HPP */

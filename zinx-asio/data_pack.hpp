@@ -5,6 +5,7 @@
 #include <boost/asio/streambuf.hpp>
 #include "message.hpp"
 
+namespace zinx_asio {//namespace zinx_asio
 class DataPack {
     public:
         static DataPack& getInstance() {
@@ -26,4 +27,5 @@ class DataPack {
         DataPack& operator=(const DataPack&) = delete;
 };
 
+}//namespace zinx_asio
 #endif /* DATA_PACK_HPP */

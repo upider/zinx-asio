@@ -2,6 +2,8 @@
 #include <cstring>
 #include "message.hpp"
 
+namespace zinx_asio {//namespace zinx_asio
+
 Message::Message(uint32_t id, const char* buf, size_t size)
     : id_(id), msgLen_(size), data_(buf, buf + size) {
 }
@@ -47,3 +49,5 @@ Message& Message::operator=(const Message& other) {
     data_ = other.data_;
     return *this;
 }
+
+}//namespace zinx_asio

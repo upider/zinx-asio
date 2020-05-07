@@ -1,5 +1,6 @@
 #include "request.hpp"
 
+namespace zinx_asio {//namespace zinx_asio
 Request::Request(Message msg, std::shared_ptr<Connection> conn)
     : msg_(msg), conn_ptr(conn) {}
 
@@ -18,3 +19,5 @@ std::vector<char>& Request::getData() {
 std::shared_ptr<Connection> Request::getConnection() {
     return conn_ptr;
 }
+
+}//namespace zinx_asio

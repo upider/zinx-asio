@@ -11,9 +11,10 @@
 #include "request.hpp"
 #include "connection.hpp"
 
-Connection::Connection(Server* s, io_context& ioc, uint32_t id,
+namespace zinx_asio {//namespace zinx_asio
+Connection::Connection(Server* s, boost::asio::io_context& ioc, uint32_t id,
                        std::shared_ptr<ConnManager> cm, std::shared_ptr<MessageManager> mm)
-    : belongServer_(s), conn_(ioc), connID_(id), isClosed_(false),
+    : belongServer_(s), socket_(ioc), connID_(id), isClosed_(false),
       connMgr_wptr(cm), routers_ptr(mm), strand_(ioc) {}
 
 Connection::~Connection () {}
@@ -27,7 +28,7 @@ void Connection::startRead(boost::asio::yield_context yield) {
     size_t len = DataPack::getInstance().getHeadLen();
     readerBuffer_.prepare(len);
     try {
-        boost::asio::async_read(conn_, readerBuffer_, boost::asio::transfer_exactly(len), yield);
+        boost::asio::async_read(socket_, readerBuffer_, boost::asio::transfer_exactly(len), yield);
     } catch(std::exception& ec) {
         std::cout << "[Writer exits error] " << ec.what() << std::endl;
         //读取错误或终止时
@@ -43,7 +44,7 @@ void Connection::startRead(boost::asio::yield_context yield) {
     len = msg.getMsgLen();
     readerBuffer_.prepare(len);
     try {
-        boost::asio::async_read(conn_, readerBuffer_, boost::asio::transfer_exactly(len), yield);
+        boost::asio::async_read(socket_, readerBuffer_, boost::asio::transfer_exactly(len), yield);
     } catch(std::exception& ec) {
         std::cout << "[Writer exits error] " << ec.what() << std::endl;
         //读取错误或终止时
@@ -92,7 +93,7 @@ void Connection::startWrite(boost::asio::yield_context yield) {
     auto self(shared_from_this());
 
     try {
-        boost::asio::async_write(conn_, writerBuffer_.data(), boost::asio::transfer_exactly(writerBuffer_.size()), yield);
+        boost::asio::async_write(socket_, writerBuffer_.data(), boost::asio::transfer_exactly(writerBuffer_.size()), yield);
     } catch(std::exception& ec) {
         std::cout << "[Writer exits error] " << ec.what() << std::endl;
         //读取错误或终止时
@@ -133,8 +134,8 @@ void Connection::stop() {
         return;
     }
     isClosed_ = true;
-    conn_.cancel();
-    conn_.close();
+    socket_.cancel();
+    socket_.close();
     auto p = connMgr_wptr.lock();
     if(p != nullptr) {
         p->delConn(self);
@@ -153,12 +154,14 @@ void Connection::sendMsg(uint32_t msgID, std::vector<char>& data) {
     DataPack::getInstance().pack(Message(msgID, data.data(), data.size()), writerBuffer_);
 }
 
-//getTCPConnection 获取当前连接绑定的socket
-ip::tcp::socket& Connection::getTCPConnection() {
-    return conn_;
+//getSocket 获取当前连接绑定的socket
+boost::asio::ip::tcp::socket& Connection::getSocket() {
+    return socket_;
 }
 
 //getConnID 获取当前连接的ID
 uint32_t Connection::getConnID() const {
     return connID_;
 }
+
+}//namespace zinx_asio

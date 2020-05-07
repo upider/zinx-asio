@@ -12,6 +12,7 @@
 #include "message.hpp"
 #include "router.hpp"
 
+namespace zinx_asio {//namespace zinx_asio
 class Request;
 
 class MessageManager {
@@ -27,4 +28,5 @@ class MessageManager {
         std::map<uint32_t, std::shared_ptr<Router>> routerMap_;
 };
 
+}//namespace zinx_asio
 #endif /* MESSAGE_MANAGER_HPP */

@@ -5,6 +5,8 @@
 #include "utils.hpp"
 #include "server.hpp"
 
+namespace zinx_asio {//namespace zinx_asio
+
 Server::Server()
     : ioWorkerPoolSize_(GlobalObject::getInstance().IOWorkerPoolSize),
       taskWorkerPoolSize_(GlobalObject::getInstance().TaskWorkerPoolSize),
@@ -45,7 +47,7 @@ void Server::doAccept() {
             //newConn_.reset(new Connection(this, ioWorkerPool_->getCtx(), cid_++, connMgr_ptr, routers_ptr));
             auto newConn_ = std::shared_ptr<Connection>(new Connection(this, ioWorkerPool_->getCtx(), cid_++, connMgr_ptr, routers_ptr));
             try {
-                acceptor_.async_accept(newConn_->getTCPConnection(), yield);
+                acceptor_.async_accept(newConn_->getSocket(), yield);
             } catch(std::exception& ec) {
                 std::cout << "DoAccept error: " << ec.what() << std::endl;
                 stop();
@@ -55,9 +57,9 @@ void Server::doAccept() {
             if (connMgr_ptr->size() == GlobalObject::getInstance().MaxConn) {
                 printf("Excess MaxConn\n");
                 //TODO 给客户端一个错误响应
-                newConn_->getTCPConnection().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-                newConn_->getTCPConnection().cancel();
-                newConn_->getTCPConnection().close();
+                newConn_->getSocket().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+                newConn_->getSocket().cancel();
+                newConn_->getSocket().close();
             } else {
                 connMgr_ptr->addConn(newConn_);
                 newConn_->start();
@@ -71,7 +73,7 @@ void Server::start() {
     printf("[zinx] %s%s Start at %s:%d\n",
            GlobalObject::getInstance().Name.data(), GlobalObject::getInstance().ZinxVersion.data(),
            GlobalObject::getInstance().Host.data(), GlobalObject::getInstance().TCPPort);
-	std::cout << "Max Connection num  = " << GlobalObject::getInstance().MaxConn << std::endl;
+    std::cout << "Max Connection num  = " << GlobalObject::getInstance().MaxConn << std::endl;
     std::cout << "IOWorkerPoolSize    = " << ioWorkerPool_->iocNum() << std::endl;
     if (taskWorkerPool_ == nullptr) {
         std::cout << "TaskWorkerPool      = NULL" << std::endl;
@@ -81,8 +83,9 @@ void Server::start() {
     }
 
     //获取tcp的Addr
-    ip::tcp::endpoint endpoint(ip::address::from_string(GlobalObject::getInstance().Host),
-                               GlobalObject::getInstance().TCPPort);
+    boost::asio::ip::tcp::endpoint
+    endpoint(boost::asio::ip::address::from_string(GlobalObject::getInstance().Host), GlobalObject::getInstance().TCPPort);
+
     acceptor_.open(endpoint.protocol());
     acceptor_.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
     acceptor_.bind(endpoint);
@@ -153,3 +156,5 @@ void Server::callOnConnStop(Conn_ptr conn) {
         throw;
     }
 }
+
+}//namespace zinx_asio

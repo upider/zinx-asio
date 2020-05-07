@@ -12,6 +12,8 @@
 
 #include "io_context_pool.hpp"
 
+namespace zinx_asio {//namespace zinx_asio
+
 struct GlobalObject {
     private:
         GlobalObject();
@@ -42,4 +44,5 @@ struct GlobalObject {
         uint32_t TaskWorkerQueueNum; //任务worker池的io_context数量
 };
 
+}//namespace zinx_asio
 #endif /* UTILS_HPP */

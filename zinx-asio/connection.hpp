@@ -11,14 +11,15 @@
 
 #include "message_manager.hpp"
 
-using namespace boost::asio;
+namespace zinx_asio {//namespace zinx_asio
 
 class ConnManager;
 class Server;
 
 class Connection: public std::enable_shared_from_this<Connection> {
     public:
-        Connection(Server*, io_context&, uint32_t, std::shared_ptr<ConnManager>, std::shared_ptr<MessageManager>);
+        Connection(Server*, boost::asio::io_context&, uint32_t,
+                   std::shared_ptr<ConnManager>, std::shared_ptr<MessageManager>);
         virtual ~Connection ();
         //startRead&startWrite要被包装成协程
         //startRead 读业务
@@ -29,8 +30,8 @@ class Connection: public std::enable_shared_from_this<Connection> {
         void start();
         //stop 停止链接
         void stop();
-        //getTCPConnection 获取当前连接绑定的socket
-        ip::tcp::socket& getTCPConnection();
+        //getSocket 获取当前连接绑定的socket
+        boost::asio::ip::tcp::socket& getSocket();
         //getConnID 获取当前连接的ID
         uint32_t getConnID() const;
         //SendMsg 发送数据
@@ -50,16 +51,16 @@ class Connection: public std::enable_shared_from_this<Connection> {
         //当前connection所属的server
         Server* belongServer_;
         //获取当前连接绑定的socket
-        ip::tcp::socket conn_;
+        boost::asio::ip::tcp::socket socket_;
         //当前连接ID
         uint32_t connID_;
         //当前连接状态
         bool isClosed_;
         //TODO:改成读写各一个缓冲
         //读写协程的数据缓冲
-        streambuf readerBuffer_;
+        boost::asio::streambuf readerBuffer_;
         //读写协程的数据缓冲
-        streambuf writerBuffer_;
+        boost::asio::streambuf writerBuffer_;
         //当前connection所属的connManager
         //防止循环引用
         std::weak_ptr<ConnManager> connMgr_wptr;
@@ -71,7 +72,8 @@ class Connection: public std::enable_shared_from_this<Connection> {
         //保护连接属性的锁
         //boost::shared_mutex propsLock_;
         //保证异步执行顺序
-        io_context::strand strand_;
+        boost::asio::io_context::strand strand_;
 };
 
+}//namespace zinx_asio
 #endif /* CONNECTION_HPP */

@@ -10,6 +10,7 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/executor_work_guard.hpp>
 
+namespace zinx_asio {//namespace zinx_asio
 /// A pool of io_context objects.
 class io_context_pool : private boost::noncopyable {
     public:
@@ -54,4 +55,5 @@ class io_context_pool : private boost::noncopyable {
         std::size_t next_io_context_;
 };
 
+}//namespace zinx_asio
 #endif /*IO_CONTEXT_POOL_HPP*/

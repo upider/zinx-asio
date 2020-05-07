@@ -15,7 +15,7 @@ using namespace boost::asio;
 void client0(boost::asio::io_context& ioc) {
     printf("=============client start==============\n");
     boost::asio::ip::tcp::socket socket(ioc);
-    ip::tcp::endpoint endpoint(
+    boost::asio::ip::tcp::endpoint endpoint(
         ip::address::from_string("127.0.0.1"), 9999);
 
     try {
@@ -26,22 +26,23 @@ void client0(boost::asio::io_context& ioc) {
 
     boost::asio::streambuf buf;
     try {
-        size_t size = DataPack::getInstance().getHeadLen();
+        size_t size = zinx_asio::DataPack::getInstance().getHeadLen();
         for (uint32_t i = 0; i < 5; ++i) {
             //消息打包
-            Message msgA(0, "hello this is client message", 29);
-            DataPack::getInstance().pack(msgA, buf);
+            char m[30] = "hello this is client message";
+            zinx_asio::Message msgA(0, m, 29);
+            zinx_asio::DataPack::getInstance().pack(msgA, buf);
             boost::asio::write(socket, buf.data());
             buf.consume(buf.size());
 
-			Message msgB(1, "hello this is client message", 29);
-			DataPack::getInstance().pack(msgB, buf);
-			boost::asio::write(socket, buf.data());
-			buf.consume(buf.size());
-			//消息拆包
+            zinx_asio::Message msgB(1, "hello this is client message", 29);
+            zinx_asio::DataPack::getInstance().pack(msgB, buf);
+            boost::asio::write(socket, buf.data());
+            buf.consume(buf.size());
+            //消息拆包
             buf.prepare(size);
             boost::asio::read(socket, buf, transfer_exactly(size));
-            auto msg2 = DataPack::getInstance().unpack(buf);
+            auto msg2 = zinx_asio::DataPack::getInstance().unpack(buf);
             buf.consume(size);
             boost::asio::read(socket, buf, transfer_exactly(msg2.getMsgLen()));
             std::cout <<  "Server send back " << msg2.getMsgLen() << " bytes"

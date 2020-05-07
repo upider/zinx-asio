@@ -6,8 +6,9 @@
 #include "message_manager.hpp"
 #include "utils.hpp"
 
-MessageManager::MessageManager() {}
+namespace zinx_asio {//namespace zinx_asio
 
+MessageManager::MessageManager() {}
 MessageManager::~MessageManager() {}
 
 //doMsgHandler 调度或执行对应的Router
@@ -33,3 +34,5 @@ void MessageManager::addRouter(uint32_t msgID, std::shared_ptr<Router> router) {
     routerMap_[msgID] = router;
     printf("Router has been added\n");
 }
+
+}//namespace zinx_asio
