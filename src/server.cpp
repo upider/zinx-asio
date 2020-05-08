@@ -13,17 +13,15 @@ Server::Server()
       taskWorkerQueueNum_(GlobalObject::getInstance().TaskWorkerQueueNum),
       ioWorkerPool_(new io_context_pool(ioWorkerPoolSize_, ioWorkerPoolSize_)),
       name_(GlobalObject::getInstance().Name),
-      IP_(GlobalObject::getInstance().Host),
-      port_(GlobalObject::getInstance().TCPPort),
       routers_ptr(new MessageManager()),
-      connMgr_ptr(new ConnManager()),
-      acceptor_(ioWorkerPool_->getCtx()) {
+      connMgr_ptr(new ConnManager()) {
 
     assert(taskWorkerPoolSize_ >= taskWorkerQueueNum_ && taskWorkerQueueNum_ >= 0);
     assert(ioWorkerPoolSize_ != 0);
     if (taskWorkerQueueNum_ > 0) {
         taskWorkerPool_.reset(new io_context_pool(taskWorkerPoolSize_, taskWorkerQueueNum_));
     }
+
 }
 
 Server::~Server() {
@@ -40,39 +38,35 @@ std::shared_ptr<io_context_pool>& Server::getTaskWorkerPool() {
     return taskWorkerPool_;
 }
 
-void Server::doAccept() {
-    boost::asio::spawn([this](boost::asio::yield_context yield) {
-        for(;;) {
-            //监听地址
-            //newConn_.reset(new Connection(this, ioWorkerPool_->getCtx(), cid_++, connMgr_ptr, routers_ptr));
-            auto newConn_ = std::shared_ptr<Connection>(new Connection(this, ioWorkerPool_->getCtx(), cid_++, connMgr_ptr, routers_ptr));
-            try {
-                acceptor_.async_accept(newConn_->getSocket(), yield);
-            } catch(std::exception& ec) {
-                std::cout << "DoAccept error: " << ec.what() << std::endl;
-                stop();
-            }
-
-            //设置最大连接数
-            if (connMgr_ptr->size() == GlobalObject::getInstance().MaxConn) {
-                printf("Excess MaxConn\n");
-                //TODO 给客户端一个错误响应
-                newConn_->getSocket().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-                newConn_->getSocket().cancel();
-                newConn_->getSocket().close();
-            } else {
-                connMgr_ptr->addConn(newConn_);
-                newConn_->start();
-            }
+void Server::doAccept(size_t acceptorIndex) {
+    //生成新的套接字
+    auto newConn = std::make_shared<Connection>(
+                       this, ioWorkerPool_->getCtx(), cid_++, connMgr_ptr, routers_ptr);
+    acceptors_[acceptorIndex]->async_accept(newConn_->getSocket(),
+    [this, acceptorIndex, newConn](boost::system::error_code ec) {
+        if (ec) {
+            std::cout << "ERROR: " << ec.message() << std::endl;
+            return;
+        }
+        //设置最大连接数
+        if (connMgr_ptr->size() == GlobalObject::getInstance().MaxConn) {
+            printf("Excess MaxConn\n");
+            //TODO 给客户端一个错误响应
+            newConn_->getSocket().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+            newConn_->getSocket().cancel();
+            newConn_->getSocket().close();
+        } else {
+            connMgr_ptr->addConn(newConn);
+            newConn_->start();
+            doAccept(acceptorIndex);
         }
     });
 }
 
 //start 开始
 void Server::start() {
-    printf("[zinx] %s%s Start at %s:%d\n",
-           GlobalObject::getInstance().Name.data(), GlobalObject::getInstance().ZinxVersion.data(),
-           GlobalObject::getInstance().Host.data(), GlobalObject::getInstance().TCPPort);
+    printf("[zinx] %s%s Start\n",
+           GlobalObject::getInstance().Name.data(), GlobalObject::getInstance().ZinxVersion.data());
     std::cout << "Max Connection num  = " << GlobalObject::getInstance().MaxConn << std::endl;
     std::cout << "IOWorkerPoolSize    = " << ioWorkerPool_->iocNum() << std::endl;
     if (taskWorkerPool_ == nullptr) {
@@ -82,15 +76,21 @@ void Server::start() {
         std::cout << "TaskWorkerQueueNum  = " << taskWorkerPool_->iocNum() << std::endl;
     }
 
-    //获取tcp的Addr
-    boost::asio::ip::tcp::endpoint
-    endpoint(boost::asio::ip::address::from_string(GlobalObject::getInstance().Host), GlobalObject::getInstance().TCPPort);
+    //获取tcp的endpoints
+    endpoints_ = GlobalObject::getInstance().EndPoints;
 
-    acceptor_.open(endpoint.protocol());
-    acceptor_.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
-    acceptor_.bind(endpoint);
-    acceptor_.listen();
-    doAccept();
+    size_t i = 0;
+    acceptors_.reserve(endpoints_.size());
+    //开启所有[地址:端口]的监听
+    for (auto endpoint : endpoints_) {
+        acceptors_.emplace_back(new acceptor(ioWorkerPool_->getCtx()));
+        acceptors_.back()->open(endpoint.protocol());
+        acceptors_.back()->bind(endpoint);
+        acceptors_.back()->listen();
+        std::cout << "[zinx] start listening on " << endpoint.address().to_string()
+                  << ":" << endpoint.port() << std::endl;
+        doAccept(i++);
+    }
 }
 
 //stop 停止

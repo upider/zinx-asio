@@ -1,4 +1,5 @@
 #include <fstream>
+#include <iostream>
 #include <nlohmann/json.hpp>
 #include "utils.hpp"
 
@@ -11,8 +12,6 @@ GlobalObject::GlobalObject() {
     is >> obj;
 
     Name = obj["Name"];
-    Host = obj["Host"];
-    TCPPort = obj["TCPPort"];
 
     ZinxVersion = obj["ZinxVersion"];
     MaxConn = obj["MaxConn"];
@@ -20,6 +19,12 @@ GlobalObject::GlobalObject() {
     IOWorkerPoolSize = obj["IOWorkerPoolSize"];
     TaskWorkerPoolSize = obj["TaskWorkerPoolSize"];
     TaskWorkerQueueNum = obj["TaskWorkerQueueNum"];
+    for (size_t i = 0; i < obj["EndPoints"].size(); ++i) {
+        std::string host = obj["EndPoints"][i]["Host"];
+        int port = obj["EndPoints"][i]["TCPPort"];
+        boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::address::from_string(host), port);
+        EndPoints.push_back(endpoint);
+    }
 }
 
 GlobalObject::~GlobalObject() {}

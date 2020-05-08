@@ -2,13 +2,8 @@
 #define UTILS_HPP
 
 #include <string>
-#include <iostream>    // std::cout, std::endl
-#include <chrono>      // std::chrono::seconds
-#include <functional>  // std::bind
-#include <utility>     // std::forward
-#include <boost/asio.hpp>
-#include <boost/range.hpp>
-#include <boost/asio/spawn.hpp>
+#include <list>
+#include <boost/asio/ip/tcp.hpp>
 
 #include "io_context_pool.hpp"
 
@@ -31,9 +26,8 @@ struct GlobalObject {
     public:
         //Server配置
         std::string Name; //Server name
-        //TCPServer ziface.IServer //全局Server
-        std::string Host; //服务器主机监听的IP
-        int TCPPort; //主机监听端口号
+
+        std::list<boost::asio::ip::tcp::endpoint> EndPoints;
 
         //zinx配置
         std::string ZinxVersion; //zinx版本号

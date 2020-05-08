@@ -27,7 +27,7 @@ class Server {
         //getTaskWorkerPool 返回连接管理模块
         std::shared_ptr<io_context_pool>& getTaskWorkerPool();
         //accept
-        void doAccept();
+        void doAccept(size_t acceptorIndex);
         //start 开始
         void start();
         //stop 停止
@@ -55,18 +55,12 @@ class Server {
         std::shared_ptr<io_context_pool> taskWorkerPool_;
         //io_context_pool
         std::unique_ptr<io_context_pool> ioWorkerPool_;
-        //Connection
-        //Conn_ptr newConn_;
         //是否运行
         bool running_;
         //服务器名称
         std::string name_;
         //ip版本
         std::string IPVersion_;
-        //监听ip
-        std::string IP_;
-        //监听端口
-        int port_;
         //消息管理模块
         std::shared_ptr<MessageManager> routers_ptr;
         //连接管理模块
@@ -76,9 +70,14 @@ class Server {
         //Connection销毁之前自动调用
         std::function<void(Conn_ptr)> onConnStop;
         //asio acceptor
-        boost::asio::ip::tcp::acceptor acceptor_;
+        using acceptor = boost::asio::ip::tcp::acceptor;
+        std::vector<std::unique_ptr<acceptor>> acceptors_;
         //连接id(序号)
         uint32_t cid_ = 0;
+        //多个监听端口
+        std::list<boost::asio::ip::tcp::endpoint> endpoints_;
+        //socket属性
+
 };
 
 }//namespace zinx_asio
