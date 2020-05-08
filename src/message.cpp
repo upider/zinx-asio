@@ -27,7 +27,7 @@ void Message::setMsgID(uint32_t i) {
     id_ = i;
 }
 
-std::vector<char>& Message::getData() {
+const std::vector<char>& Message::getData() const {
     return data_;
 }
 

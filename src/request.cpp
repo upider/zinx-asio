@@ -12,7 +12,7 @@ uint32_t Request::getMsgID() const {
     return msg_.getMsgID();
 }
 
-std::vector<char>& Request::getData() {
+const std::vector<char>& Request::getData() const {
     return msg_.getData();
 }
 

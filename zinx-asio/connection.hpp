@@ -37,16 +37,23 @@ class Connection: public std::enable_shared_from_this<Connection> {
         //SendMsg 发送数据
         void sendMsg(uint32_t msgID, const char* data, size_t);
         //SendMsg 发送数据
-        void sendMsg(uint32_t msgID, std::vector<char>&);
-        //TODO
-        //getRemoteAddr 获取客户端的TCP状态IP和Port
-        //void getRemoteAddr();
+        void sendMsg(uint32_t msgID, const std::vector<char>&);
+        //SendMsg 发送数据
+        void sendMsg(uint32_t msgID, const std::string&);
+        //SendMsg 发送数据
+        void sendMsg(uint32_t msgID, boost::asio::streambuf&);
+        //SendMsg 发送数据
+        void sendMsg(const Message&);
+        //getRemoteEndpoint 获取客户端的TCP状态IP和Port
+        boost::asio::ip::tcp::endpoint getRemoteEndpoint();
+        //getLocalEndpoint 获取本地的TCP状态IP和Port
+        boost::asio::ip::tcp::endpoint getLocalEndpoint ();
         //SetProp 设置连接属性
-        //void setProp(std::string key, boost::any val);
+        void setProp(const std::string& key, boost::any val);
         //GetProp 获取连接属性
-        //boost::any getProp(std::string key);
+        boost::any getProp(const std::string& key);
         //DelProp 删除连接属性
-        //void delProp(std::string key);
+        void delProp(const std::string& key);
     private:
         //当前connection所属的server
         Server* belongServer_;
@@ -68,10 +75,10 @@ class Connection: public std::enable_shared_from_this<Connection> {
         std::shared_ptr<MessageManager> routers_ptr;
         //TODO:
         //连接属性集合
-        //std::map<std::string, boost::any> props_;
+        std::map<std::string, boost::any> props_;
         //保护连接属性的锁
-        //boost::shared_mutex propsLock_;
-        //保证异步执行顺序
+        boost::shared_mutex propsLock_;
+        //保证异步执行顺序,封装协程
         boost::asio::io_context::strand strand_;
 };
 

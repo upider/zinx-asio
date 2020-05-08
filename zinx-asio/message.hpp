@@ -19,7 +19,7 @@ class Message {
         //setMsgID 设置消息ID
         void setMsgID(uint32_t);
         //获取消息数组
-        std::vector<char>& getData();
+        const std::vector<char>& getData() const;
         //设置消息数组
         void setData(std::vector<char>&);
         //设置消息数组

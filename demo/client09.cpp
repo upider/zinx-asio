@@ -24,25 +24,26 @@ void client0(boost::asio::io_context& ioc) {
         std::cout << e.what() << std::endl;
     }
 
+    char m[30] = "hello this is client message";
     boost::asio::streambuf buf;
+    size_t size = zinx_asio::DataPack().getHeadLen();
     try {
-        size_t size = zinx_asio::DataPack::getInstance().getHeadLen();
         for (uint32_t i = 0; i < 5; ++i) {
             //消息打包
-            char m[30] = "hello this is client message";
             zinx_asio::Message msgA(0, m, 29);
-            zinx_asio::DataPack::getInstance().pack(msgA, buf);
-            boost::asio::write(socket, buf.data());
-            buf.consume(buf.size());
+            //使用string作为消息载体
+            std::string charBuf;
+            zinx_asio::DataPack().pack(charBuf, msgA);
+            boost::asio::write(socket, boost::asio::buffer(charBuf));
 
             zinx_asio::Message msgB(1, "hello this is client message", 29);
-            zinx_asio::DataPack::getInstance().pack(msgB, buf);
+            zinx_asio::DataPack().pack(buf, msgB);
             boost::asio::write(socket, buf.data());
             buf.consume(buf.size());
             //消息拆包
             buf.prepare(size);
             boost::asio::read(socket, buf, transfer_exactly(size));
-            auto msg2 = zinx_asio::DataPack::getInstance().unpack(buf);
+            auto msg2 = zinx_asio::DataPack().unpack(buf);
             buf.consume(size);
             boost::asio::read(socket, buf, transfer_exactly(msg2.getMsgLen()));
             std::cout <<  "Server send back " << msg2.getMsgLen() << " bytes"

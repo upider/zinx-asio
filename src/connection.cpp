@@ -25,7 +25,7 @@ void Connection::startRead(boost::asio::yield_context yield) {
 
     //创建拆解包对象
     //读取客户端户message head的数据流的前八个字节
-    size_t len = DataPack::getInstance().getHeadLen();
+    size_t len = DataPack().getHeadLen();
     readerBuffer_.prepare(len);
     try {
         boost::asio::async_read(socket_, readerBuffer_, boost::asio::transfer_exactly(len), yield);
@@ -37,7 +37,7 @@ void Connection::startRead(boost::asio::yield_context yield) {
     }
 
     //拆包:读取messageID和Len放进headData
-    Message msg = DataPack::getInstance().unpack(readerBuffer_);
+    Message msg = DataPack().unpack(readerBuffer_);
     //清除buffer数据
     readerBuffer_.consume(len);
     //拆包:读取data
@@ -146,12 +146,34 @@ void Connection::stop() {
 
 //SendMsg 发送数据
 void Connection::sendMsg(uint32_t msgID, const char* data, size_t size) {
-    DataPack::getInstance().pack(Message(msgID, data, size), writerBuffer_);
+    DataPack().pack(writerBuffer_, Message(msgID, data, size));
 }
 
 //SendMsg 发送数据
-void Connection::sendMsg(uint32_t msgID, std::vector<char>& data) {
-    DataPack::getInstance().pack(Message(msgID, data.data(), data.size()), writerBuffer_);
+void Connection::sendMsg(uint32_t msgID, const std::vector<char>& data) {
+    DataPack().pack(writerBuffer_, Message(msgID, data.data(), data.size()));
+}
+
+//SendMsg 发送数据
+void Connection::sendMsg(uint32_t msgID, const std::string& data) {
+    DataPack().pack(writerBuffer_, Message(msgID, data.data(), data.size()));
+}
+
+//SendMsg 发送数据
+void Connection::sendMsg(uint32_t msgID, boost::asio::streambuf& data) {
+    std::iostream ios(&writerBuffer_);
+    //dataLen写进buf
+    uint32_t len = data.size();
+    ios.write((char*)(&len), 4);
+    //dataID写进buf
+    ios.write((char*)(&msgID), 4);
+    //data写进buf
+    ios << &data;
+}
+
+//SendMsg 发送数据
+void Connection::sendMsg(const Message& msg) {
+    DataPack().pack(writerBuffer_, msg);
 }
 
 //getSocket 获取当前连接绑定的socket
@@ -162,6 +184,38 @@ boost::asio::ip::tcp::socket& Connection::getSocket() {
 //getConnID 获取当前连接的ID
 uint32_t Connection::getConnID() const {
     return connID_;
+}
+
+//getRemoteEndpoint 获取客户端的TCP状态IP和Port
+boost::asio::ip::tcp::endpoint Connection::getRemoteEndpoint() {
+    return socket_.remote_endpoint();
+}
+
+//getLocalEndpoint 获取本地的TCP状态IP和Port
+boost::asio::ip::tcp::endpoint Connection::getLocalEndpoint() {
+    return socket_.local_endpoint();
+}
+
+//SetProp 设置连接属性
+void Connection::setProp(const std::string& key, boost::any val) {
+    propsLock_.lock();
+    props_[key] = val;
+    propsLock_.unlock();
+}
+
+//GetProp 获取连接属性
+boost::any Connection::getProp(const std::string& key) {
+    propsLock_.lock_shared();
+    auto ret = props_[key];
+    propsLock_.unlock_shared();
+    return ret;
+}
+
+//DelProp 删除连接属性
+void Connection::delProp(const std::string& key) {
+    propsLock_.lock();
+    props_.erase(key);
+    propsLock_.unlock();
 }
 
 }//namespace zinx_asio

@@ -12,7 +12,7 @@ class Request {
         Request();
         ~Request();
         uint32_t getMsgID() const;
-        std::vector<char>& getData();
+        const std::vector<char>& getData() const;
         std::shared_ptr<Connection> getConnection();
     private:
         Message msg_;
