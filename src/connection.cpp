@@ -196,26 +196,4 @@ boost::asio::ip::tcp::endpoint Connection::getLocalEndpoint() {
     return socket_.local_endpoint();
 }
 
-//SetProp 设置连接属性
-void Connection::setProp(const std::string& key, boost::any val) {
-    propsLock_.lock();
-    props_[key] = val;
-    propsLock_.unlock();
-}
-
-//GetProp 获取连接属性
-boost::any Connection::getProp(const std::string& key) {
-    propsLock_.lock_shared();
-    auto ret = props_[key];
-    propsLock_.unlock_shared();
-    return ret;
-}
-
-//DelProp 删除连接属性
-void Connection::delProp(const std::string& key) {
-    propsLock_.lock();
-    props_.erase(key);
-    propsLock_.unlock();
-}
-
 }//namespace zinx_asio

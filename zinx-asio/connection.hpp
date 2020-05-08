@@ -63,7 +63,6 @@ class Connection: public std::enable_shared_from_this<Connection> {
         uint32_t connID_;
         //当前连接状态
         bool isClosed_;
-        //TODO:改成读写各一个缓冲
         //读写协程的数据缓冲
         boost::asio::streambuf readerBuffer_;
         //读写协程的数据缓冲
@@ -73,11 +72,6 @@ class Connection: public std::enable_shared_from_this<Connection> {
         std::weak_ptr<ConnManager> connMgr_wptr;
         //消息管理模块
         std::shared_ptr<MessageManager> routers_ptr;
-        //TODO:
-        //连接属性集合
-        std::map<std::string, boost::any> props_;
-        //保护连接属性的锁
-        boost::shared_mutex propsLock_;
         //保证异步执行顺序,封装协程
         boost::asio::io_context::strand strand_;
 };

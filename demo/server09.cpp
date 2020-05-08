@@ -55,6 +55,17 @@ int main() {
     //添加Router
     s.addRouter(0, std::make_shared<PingRouter>());
     s.addRouter(1, std::make_shared<HelloRouter>());
+
+    //开始监听
+    s.listen();
+    s.getConnMgr()->addSocketOption(zinx_asio::ReuseAddr, true);
+
+    //设置acceptor属性
+    boost::asio::ip::tcp::acceptor::reuse_address option1(true);
+    boost::asio::socket_base::keep_alive option2(true);
+    s.setAcceptorOption(option1).setAcceptorOption(option2);
+
+    //开始运行
     s.serve();
     return 0;
 }

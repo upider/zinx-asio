@@ -22,27 +22,26 @@ Server::Server()
         taskWorkerPool_.reset(new io_context_pool(taskWorkerPoolSize_, taskWorkerQueueNum_));
     }
 
+    //获取tcp的endpoints
+    endpoints_ = GlobalObject::getInstance().EndPoints;
+    acceptors_.reserve(endpoints_.size());
+    for (size_t i = 0; i < endpoints_.size(); i++) {
+        acceptors_.emplace_back(new acceptor(ioWorkerPool_->getCtx()));
+    }
 }
 
 Server::~Server() {
     ioWorkerPool_->stop();
 }
 
-//getConnMgr 返回连接管理模块
-std::shared_ptr<ConnManager> Server::getConnMgr() {
-    return connMgr_ptr;
-}
-
-//getTaskWorkerPool 返回连接管理模块
-std::shared_ptr<io_context_pool>& Server::getTaskWorkerPool() {
-    return taskWorkerPool_;
-}
-
 void Server::doAccept(size_t acceptorIndex) {
     //生成新的套接字
     auto newConn = std::make_shared<Connection>(
                        this, ioWorkerPool_->getCtx(), cid_++, connMgr_ptr, routers_ptr);
-    acceptors_[acceptorIndex]->async_accept(newConn_->getSocket(),
+
+    //开始等待连接
+    std::cout << "Acceptor " << acceptorIndex << " start Accepting Connection" << std::endl;
+    acceptors_[acceptorIndex]->async_accept(newConn->getSocket(),
     [this, acceptorIndex, newConn](boost::system::error_code ec) {
         if (ec) {
             std::cout << "ERROR: " << ec.message() << std::endl;
@@ -52,15 +51,31 @@ void Server::doAccept(size_t acceptorIndex) {
         if (connMgr_ptr->size() == GlobalObject::getInstance().MaxConn) {
             printf("Excess MaxConn\n");
             //TODO 给客户端一个错误响应
-            newConn_->getSocket().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-            newConn_->getSocket().cancel();
-            newConn_->getSocket().close();
+            newConn->getSocket().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+            newConn->getSocket().cancel();
+            newConn->getSocket().close();
         } else {
             connMgr_ptr->addConn(newConn);
-            newConn_->start();
+            newConn->start();
+            //给套接字设置套接字选项
+			connMgr_ptr->setAllSocketOptions(newConn);
             doAccept(acceptorIndex);
         }
     });
+}
+
+//listen
+void Server::listen() {
+    size_t i = 0;
+    //开启所有[地址:端口]的监听
+    for (auto endpoint : endpoints_) {
+        acceptors_[i]->open(endpoint.protocol());
+        acceptors_[i]->bind(endpoint);
+        acceptors_[i]->listen();
+        std::cout << "[zinx] start listening on " << endpoint.address().to_string()
+                  << ":" << endpoint.port() << std::endl;
+        i++;
+    }
 }
 
 //start 开始
@@ -76,20 +91,9 @@ void Server::start() {
         std::cout << "TaskWorkerQueueNum  = " << taskWorkerPool_->iocNum() << std::endl;
     }
 
-    //获取tcp的endpoints
-    endpoints_ = GlobalObject::getInstance().EndPoints;
-
-    size_t i = 0;
-    acceptors_.reserve(endpoints_.size());
-    //开启所有[地址:端口]的监听
-    for (auto endpoint : endpoints_) {
-        acceptors_.emplace_back(new acceptor(ioWorkerPool_->getCtx()));
-        acceptors_.back()->open(endpoint.protocol());
-        acceptors_.back()->bind(endpoint);
-        acceptors_.back()->listen();
-        std::cout << "[zinx] start listening on " << endpoint.address().to_string()
-                  << ":" << endpoint.port() << std::endl;
-        doAccept(i++);
+    //开始执行acceptor
+    for (size_t i = 0; i < acceptors_.size(); ++i) {
+        doAccept(i);
     }
 }
 
@@ -155,6 +159,16 @@ void Server::callOnConnStop(Conn_ptr conn) {
     } catch(...) {
         throw;
     }
+}
+
+//getConnMgr 返回连接管理模块
+std::shared_ptr<ConnManager> Server::getConnMgr() {
+    return connMgr_ptr;
+}
+
+//getTaskWorkerPool 返回连接管理模块
+std::shared_ptr<io_context_pool>& Server::getTaskWorkerPool() {
+    return taskWorkerPool_;
 }
 
 }//namespace zinx_asio

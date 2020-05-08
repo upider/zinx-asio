@@ -30,6 +30,8 @@ class Server {
         void doAccept(size_t acceptorIndex);
         //start 开始
         void start();
+        //listen
+        void listen();
         //stop 停止
         void stop();
         //server 运行
@@ -44,13 +46,25 @@ class Server {
         void callOnConnStart(Conn_ptr);
         //callOnConnStop 调用OnConnStop
         void callOnConnStop(Conn_ptr);
+
+        //设置acceptor
+        template <typename SettableSocketOption >
+        Server& setAcceptorOption(const SettableSocketOption & option) {
+            for (auto& acceptor : acceptors_) {
+                acceptor->set_option(option);
+            }
+            return *this;
+        }
+    private:
+        //给Connection设置套接字选项
+        void setSocketOptions(Conn_ptr);
     private:
         //ioWorker池的worker数量
         uint32_t ioWorkerPoolSize_;
         //taskWorker池的worker数量
         uint32_t taskWorkerPoolSize_;
-        //taskWorker池的worker数量
         uint32_t taskWorkerQueueNum_;
+        //taskWorker池的worker数量
         //taskWorker池
         std::shared_ptr<io_context_pool> taskWorkerPool_;
         //io_context_pool
@@ -76,8 +90,6 @@ class Server {
         uint32_t cid_ = 0;
         //多个监听端口
         std::list<boost::asio::ip::tcp::endpoint> endpoints_;
-        //socket属性
-
 };
 
 }//namespace zinx_asio
