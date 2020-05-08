@@ -28,6 +28,31 @@
 ## 运行过程
 客户端请求建立连接---->服务器接受连接---->客户端发送消息---->消息包装成Message---->
 Message包装成Request---->Connection对应的的消息管理模块调用Router---->Message发送回客户端
+
+## 配置文件例子
+
+```json
+{
+	"Name":"ZinxServerApp",      #服务器名称
+	"ZinxVersion":"V0.9",        #服务器版本
+	"MaxConn":300,               #最大连接数
+	"MaxPackageSize":512,        #最大包（字节）
+	"IOWorkerPoolSize":1,        #IO工作池
+	"TaskWorkerPoolSize":2,      #业务工作池
+	"TaskWorkerQueueNum":1,      #业务工作池队列数目
+	"MaxConnTime":10,            #最大连接时间-秒
+
+	"EndPoints":[                #监听的所有地址
+		{
+			"Host":"127.0.0.1",
+			"TCPPort":9999
+		},
+		{
+			"Host":"127.0.0.1",
+			"TCPPort":8888
+		}]
+}
+```
 										  
 ## 协程使用
 

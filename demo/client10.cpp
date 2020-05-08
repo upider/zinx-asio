@@ -1,3 +1,10 @@
+/**
+ * @file client10.cpp
+ * @brief 开启多个线程作为客户端
+ * @author yzz
+ * @version 1.0
+ * @date 2020-05-08
+ */
 #include <iostream>
 #include <thread>
 #include <vector>

@@ -11,7 +11,9 @@ include_directories(zinx-asio ${Boost_INCLUDE_DIRS})
 
 aux_source_directory(${PROJECT_SOURCE_DIR}/src SRC_LIST)
 
-add_executable(client ${SRC_LIST} demo/client09.cpp)
-add_executable(server ${SRC_LIST} demo/server09.cpp)
+add_executable(client ${SRC_LIST} demo/client10.cpp)
+add_executable(forever_client ${SRC_LIST} demo/forever_client.cpp)
+add_executable(server ${SRC_LIST} demo/server10.cpp)
 target_link_libraries(client PRIVATE pthread boost_context boost_coroutine boost_thread nlohmann_json::nlohmann_json)
+target_link_libraries(forever_client PRIVATE pthread boost_context boost_coroutine boost_thread nlohmann_json::nlohmann_json)
 target_link_libraries(server PRIVATE pthread boost_context boost_coroutine boost_thread nlohmann_json::nlohmann_json)

@@ -1,6 +1,7 @@
 #include <memory>
 #include <iostream>
 #include <thread>
+#include <chrono>
 
 #include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
@@ -12,10 +13,10 @@
 #include "connection.hpp"
 
 namespace zinx_asio {//namespace zinx_asio
-Connection::Connection(Server* s, boost::asio::io_context& ioc, uint32_t id,
+Connection::Connection(Server* s, boost::asio::io_context& ioc, uint32_t id, size_t time,
                        std::shared_ptr<ConnManager> cm, std::shared_ptr<MessageManager> mm)
-    : belongServer_(s), socket_(ioc), connID_(id), isClosed_(false),
-      connMgr_wptr(cm), routers_ptr(mm), strand_(ioc) {}
+    : belongServer_(s), socket_(ioc), connID_(id), maxConnTime_(time), isClosed_(false),
+      connMgr_wptr(cm), routers_ptr(mm), strand_(ioc), timer_(ioc) {}
 
 Connection::~Connection () {}
 
@@ -32,6 +33,8 @@ void Connection::startRead(boost::asio::yield_context yield) {
     } catch(std::exception& ec) {
         std::cout << "[Writer exits error] " << ec.what() << std::endl;
         //读取错误或终止时
+        //终止timer
+        timer_.cancel();
         stop();
         return;
     }
@@ -48,6 +51,8 @@ void Connection::startRead(boost::asio::yield_context yield) {
     } catch(std::exception& ec) {
         std::cout << "[Writer exits error] " << ec.what() << std::endl;
         //读取错误或终止时
+        //终止timer
+        timer_.cancel();
         stop();
         return;
     }
@@ -97,6 +102,8 @@ void Connection::startWrite(boost::asio::yield_context yield) {
     } catch(std::exception& ec) {
         std::cout << "[Writer exits error] " << ec.what() << std::endl;
         //读取错误或终止时
+        //终止timer
+        timer_.cancel();
         stop();
         return;
     }
@@ -122,6 +129,25 @@ void Connection::start() {
     boost::asio::spawn(strand_, [this, self](boost::asio::yield_context yield) {
         startRead(yield);
     });
+
+    if (maxConnTime_) {
+        //设置timer超时时间
+        timer_.expires_after(std::chrono::seconds(maxConnTime_));
+        timer_.async_wait(
+        [this](const boost::system::error_code & ec) {
+            if (ec) {
+                std::cout << "Connection " << connID_ << " Timer Error: " << ec.message() << std::endl;
+                if(!isClosed_.load(std::memory_order_relaxed)) {
+                    stop();
+                    return;
+                }
+            } else {
+                std::cout << "Connection " << connID_ << " Timeout" << std::endl;
+                //取消Connection的读写操作,关闭Connection
+                stop();
+            }
+        });
+    }
 }
 
 //stop 停止链接
@@ -130,10 +156,10 @@ void Connection::stop() {
     //销毁连接之前调用OnConnStop
     auto self(shared_from_this());
     belongServer_->callOnConnStop(self);
-    if(isClosed_) {
+    if(isClosed_.load(std::memory_order_relaxed)) {
         return;
     }
-    isClosed_ = true;
+    isClosed_.store(true, std::memory_order_relaxed);
     socket_.cancel();
     socket_.close();
     auto p = connMgr_wptr.lock();

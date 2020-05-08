@@ -1,3 +1,10 @@
+/**
+ * @file server10.cpp
+ * @brief 服务器端例子
+ * @author yzz
+ * @version 1.0
+ * @date 2020-05-08
+ */
 #include <iostream>
 #include <thread>
 #include <chrono>

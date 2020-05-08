@@ -19,6 +19,7 @@ GlobalObject::GlobalObject() {
     IOWorkerPoolSize = obj["IOWorkerPoolSize"];
     TaskWorkerPoolSize = obj["TaskWorkerPoolSize"];
     TaskWorkerQueueNum = obj["TaskWorkerQueueNum"];
+    MaxConnTime = obj["MaxConnTime"];
     for (size_t i = 0; i < obj["EndPoints"].size(); ++i) {
         std::string host = obj["EndPoints"][i]["Host"];
         int port = obj["EndPoints"][i]["TCPPort"];

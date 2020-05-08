@@ -6,6 +6,7 @@
 	"IOWorkerPoolSize":1,
 	"TaskWorkerPoolSize":2,
 	"TaskWorkerQueueNum":1,
+	"MaxConnTime":10,
 
 	"EndPoints":[
 		{

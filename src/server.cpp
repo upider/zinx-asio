@@ -36,8 +36,9 @@ Server::~Server() {
 
 void Server::doAccept(size_t acceptorIndex) {
     //生成新的套接字
-    auto newConn = std::make_shared<Connection>(
-                       this, ioWorkerPool_->getCtx(), cid_++, connMgr_ptr, routers_ptr);
+    auto newConn = std::make_shared<Connection>(this, ioWorkerPool_->getCtx(),
+                   cid_++, GlobalObject::getInstance().MaxConnTime,
+                   connMgr_ptr, routers_ptr);
 
     //开始等待连接
     std::cout << "Acceptor " << acceptorIndex << " start Accepting Connection" << std::endl;
@@ -58,7 +59,7 @@ void Server::doAccept(size_t acceptorIndex) {
             connMgr_ptr->addConn(newConn);
             newConn->start();
             //给套接字设置套接字选项
-			connMgr_ptr->setAllSocketOptions(newConn);
+            connMgr_ptr->setAllSocketOptions(newConn);
             doAccept(acceptorIndex);
         }
     });

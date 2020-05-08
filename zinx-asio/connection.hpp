@@ -1,13 +1,14 @@
 #ifndef CONNECTION_HPP
 #define CONNECTION_HPP
 
-#include <boost/any.hpp>
+#include <atomic>
+
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/range.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/local/stream_protocol.hpp>
+#include <boost/asio/steady_timer.hpp>
 
 #include "message_manager.hpp"
 
@@ -18,7 +19,7 @@ class Server;
 
 class Connection: public std::enable_shared_from_this<Connection> {
     public:
-        Connection(Server*, boost::asio::io_context&, uint32_t,
+        Connection(Server*, boost::asio::io_context&, uint32_t, size_t,
                    std::shared_ptr<ConnManager>, std::shared_ptr<MessageManager>);
         virtual ~Connection ();
         //startRead&startWrite要被包装成协程
@@ -48,12 +49,6 @@ class Connection: public std::enable_shared_from_this<Connection> {
         boost::asio::ip::tcp::endpoint getRemoteEndpoint();
         //getLocalEndpoint 获取本地的TCP状态IP和Port
         boost::asio::ip::tcp::endpoint getLocalEndpoint ();
-        //SetProp 设置连接属性
-        void setProp(const std::string& key, boost::any val);
-        //GetProp 获取连接属性
-        boost::any getProp(const std::string& key);
-        //DelProp 删除连接属性
-        void delProp(const std::string& key);
     private:
         //当前connection所属的server
         Server* belongServer_;
@@ -61,8 +56,10 @@ class Connection: public std::enable_shared_from_this<Connection> {
         boost::asio::ip::tcp::socket socket_;
         //当前连接ID
         uint32_t connID_;
+        //最大连接时间
+        size_t maxConnTime_;
         //当前连接状态
-        bool isClosed_;
+		std::atomic_bool isClosed_;
         //读写协程的数据缓冲
         boost::asio::streambuf readerBuffer_;
         //读写协程的数据缓冲
@@ -74,6 +71,8 @@ class Connection: public std::enable_shared_from_this<Connection> {
         std::shared_ptr<MessageManager> routers_ptr;
         //保证异步执行顺序,封装协程
         boost::asio::io_context::strand strand_;
+        //Connection 连接时间定时
+        boost::asio::steady_timer timer_;
 };
 
 }//namespace zinx_asio

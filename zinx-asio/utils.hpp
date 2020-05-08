@@ -26,8 +26,10 @@ struct GlobalObject {
     public:
         //Server配置
         std::string Name; //Server name
-
+        //监听的所有地址
         std::list<boost::asio::ip::tcp::endpoint> EndPoints;
+        //Connection最大连接时间-秒,0表示不设置连接时间
+        size_t MaxConnTime;
 
         //zinx配置
         std::string ZinxVersion; //zinx版本号
