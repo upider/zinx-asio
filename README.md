@@ -53,7 +53,55 @@ Message包装成Request---->Connection对应的的消息管理模块调用Router
 		}]
 }
 ```
-										  
+
+## 代码例子
+
+服务端代码请看demo,很详细,客户端代码如下:
+Message形式为uint32_t(len)|uint32_t(ID)|char(内容)
+
+```c
+    size_t size = zinx_asio::DataPack().getHeadLen();
+	//建立socket
+	boost::asio::io_context ioc;
+	boost::asio::ip::tcp::socket socket(ioc);
+	//建立地址
+    boost::asio::ip::tcp::endpoint endpoint(
+        ip::address::from_string("127.0.0.1"), 9999);
+
+    try {
+		//建立连接
+        socket.connect(endpoint);
+    } catch(boost::system::system_error& e) {
+        std::cout << e.what() << std::endl;
+    }
+	
+	//构造Message
+	//Message的setData方法可以使用vector和char*设置发送内容
+	//以后会提供更丰富的方法
+	zinx_asio::Message msgB(1, "hello this is client message", 29);
+	//消息打包
+	zinx_asio::DataPack().pack(buf, msgB);
+	//发送消息
+	boost::asio::write(socket, buf.data());
+	//消耗掉发送的消息
+	buf.consume(buf.size());
+
+    buf.prepare(size);
+	//读消息
+    boost::asio::read(socket, buf, transfer_exactly(size));
+	//消息拆包:读取消息头部
+    auto msg2 = zinx_asio::DataPack().unpack(buf);
+	//消耗掉使用的消息
+    buf.consume(size);
+	//读取消息体
+    boost::asio::read(socket, buf, transfer_exactly(msg2.getMsgLen()));
+	//打印
+    std::cout <<  "Server send back " << msg2.getMsgLen() << " bytes"
+              << "message is " << &buf << std::endl;
+    buf.consume(buf.size());
+```
+
+
 ## 协程使用
 
 + 第一版:在启动每个Connection的read和write时，将其包装成协程且序列化读写操作
