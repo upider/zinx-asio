@@ -27,7 +27,6 @@ void Connection::startRead(boost::asio::yield_context yield) {
     //创建拆解包对象
     //读取客户端户message head的数据流的前八个字节
     size_t len = DataPack().getHeadLen();
-    readerBuffer_.prepare(len);
     try {
         boost::asio::async_read(socket_, readerBuffer_, boost::asio::transfer_exactly(len), yield);
     } catch(std::exception& ec) {
@@ -41,11 +40,8 @@ void Connection::startRead(boost::asio::yield_context yield) {
 
     //拆包:读取messageID和Len放进headData
     Message msg = DataPack().unpack(readerBuffer_);
-    //清除buffer数据
-    readerBuffer_.consume(len);
     //拆包:读取data
     len = msg.getMsgLen();
-    readerBuffer_.prepare(len);
     try {
         boost::asio::async_read(socket_, readerBuffer_, boost::asio::transfer_exactly(len), yield);
     } catch(std::exception& ec) {
@@ -60,8 +56,6 @@ void Connection::startRead(boost::asio::yield_context yield) {
     char data[len];
     ios.read(data, len);
     msg.setData(data, len);
-    //清空buffer数据
-    readerBuffer_.consume(len);
 
     auto self(shared_from_this());
 
@@ -109,9 +103,6 @@ void Connection::startWrite(boost::asio::yield_context yield) {
     }
 
     std::cout << "Writer Thread ID " << std::this_thread::get_id() << std::endl;
-
-    //清除buffer数据
-    writerBuffer_.consume(writerBuffer_.size());
 
     printf("[Connection %d WriterHandler Stop]\n", connID_);
     boost::asio::spawn(strand_, [this, self](boost::asio::yield_context yield) {

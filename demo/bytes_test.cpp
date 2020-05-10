@@ -56,8 +56,12 @@ int main(void)
     for (int i = 0; i < 10; ++i) {
         buffer.writeUint32(10).writeUint32(0);
         buffer << "0123456789";
-        boost::asio::write(socket, buffer.data(), boost::asio::transfer_exactly(buffer.size()));
-        buffer.consume(buffer.size());
+
+        //使用data()方法需要自己处理缓冲区指针
+        //boost::asio::write(socket, buffer.data(), boost::asio::transfer_exactly(buffer.size()));
+        //buffer.consume(buffer.size());
+
+        boost::asio::write(socket, buffer.buf(), boost::asio::transfer_exactly(buffer.size()));
         uint32_t size = zinx_asio::DataPack().getHeadLen();
         boost::asio::read(socket, buffer.buf(), boost::asio::transfer_exactly(size));
         uint32_t id;

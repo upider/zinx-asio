@@ -46,15 +46,15 @@ void client0(boost::asio::io_context& ioc) {
             zinx_asio::Message msgB(1, "hello this is client-0 message-1", 33);
             zinx_asio::DataPack().pack(buf, msgB);
             boost::asio::write(socket, buf.data());
-            buf.consume(buf.size());
+            //buf.consume(buf.size());
             //消息拆包
             boost::asio::read(socket, buf, transfer_exactly(size));
             auto msg2 = zinx_asio::DataPack().unpack(buf);
-            buf.consume(size);
+            //buf.consume(size);
             boost::asio::read(socket, buf, transfer_exactly(msg2.getMsgLen()));
             std::cout <<  "Server send back " << msg2.getMsgLen() << " bytes"
                       << "message is " << &buf << std::endl;
-            buf.consume(buf.size());
+            //buf.consume(buf.size());
         }
         socket.shutdown(boost::asio::socket_base::shutdown_send);
         socket.close();
