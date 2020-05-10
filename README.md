@@ -1,5 +1,8 @@
 # zinx-asio
 
+## 注意
+后续开发都在dev分支下
+
 ## 致谢
 
 1. 感谢zinx作者刘丹冰提供的Golang版本zinx视频教程
