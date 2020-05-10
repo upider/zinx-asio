@@ -17,6 +17,7 @@ uint32_t DataPack::getHeadLen()  {
 }
 
 //Pack 封包:len,ID,data,message放进dataBuf
+//使用时注意dataBuf长度必须足够
 void DataPack::pack(char* dataBuf, const Message& msg) {
     int startPos = 0;
     //dataLen写进buf

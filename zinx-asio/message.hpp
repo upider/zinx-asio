@@ -5,6 +5,7 @@
 #include <inttypes.h>
 
 namespace zinx_asio {//namespace zinx_asio
+
 class Message {
     public:
         Message(uint32_t, const char*, size_t);

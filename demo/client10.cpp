@@ -48,7 +48,6 @@ void client0(boost::asio::io_context& ioc) {
             boost::asio::write(socket, buf.data());
             buf.consume(buf.size());
             //消息拆包
-            buf.prepare(size);
             boost::asio::read(socket, buf, transfer_exactly(size));
             auto msg2 = zinx_asio::DataPack().unpack(buf);
             buf.consume(size);

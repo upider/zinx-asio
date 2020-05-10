@@ -5,8 +5,7 @@
 namespace zinx_asio {//namespace zinx_asio
 
 Message::Message(uint32_t id, const char* buf, size_t size)
-    : id_(id), msgLen_(size), data_(buf, buf + size) {
-}
+    : id_(id), msgLen_(size), data_(buf, buf + size) {}
 
 Message::Message() {}
 Message::~Message() {}

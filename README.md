@@ -56,7 +56,11 @@ Message包装成Request---->Connection对应的的消息管理模块调用Router
 
 ## 代码例子
 
-服务端代码请看demo,很详细,客户端代码如下:
+1. 服务端代码:
+请看demo,很详细,注意
+`[Writer exits error] Bad file descriptor`和`Connection 0 Timer Error: Operation canceled`
+是打印的log信息不是错误 
+2. 客户端代码如下:
 Message形式为uint32_t(len)|uint32_t(ID)|char(内容)
 
 ```c
@@ -86,7 +90,6 @@ Message形式为uint32_t(len)|uint32_t(ID)|char(内容)
 	//消耗掉发送的消息
 	buf.consume(buf.size());
 
-    buf.prepare(size);
 	//读消息
     boost::asio::read(socket, buf, transfer_exactly(size));
 	//消息拆包:读取消息头部
@@ -101,9 +104,12 @@ Message形式为uint32_t(len)|uint32_t(ID)|char(内容)
     buf.consume(buf.size());
 ```
 
-
 ## 协程使用
 
 + 第一版:在启动每个Connection的read和write时，将其包装成协程且序列化读写操作
 读操作结束,将计算任务提交到TaskWorkerPool(线程池),并将协程挂起,计算结束恢复协程进行写操作
 + 第二版:将第一版的read和write的一个协程拆成两个,一个连接不会阻塞其他连接,将计算任务提交到TaskWorkerPool(线程池),同时提交异步写任务到IO线程
+
+## TODO
+
+1. ByteBufffer整合到服务器
