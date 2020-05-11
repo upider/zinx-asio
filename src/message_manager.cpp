@@ -8,20 +8,29 @@
 
 namespace zinx_asio {//namespace zinx_asio
 
+///默认构造
 MessageManager::MessageManager() {}
 MessageManager::~MessageManager() {}
 
 //doMsgHandler 调度或执行对应的Router
 void MessageManager::doMsgHandler(Request& request) const {
-    //找到router
-    auto it = routerMap_.find(request.getMsgID());
-    if (it == routerMap_.end()) {
-        printf("msgID = %d dose not have a router\n", request.getMsgID());
-        return;
+    for (auto& r : routerMap_) {
+        try {
+            r.second->preHandle(request);
+        } catch(std::exception& e) {
+            std::cout << "DoMsgHandler Error: " << e.what() << std::endl;
+        }
+        try {
+            r.second->handle(request);
+        } catch(std::exception& e) {
+            std::cout << "DoMsgHandler Error: " << e.what() << std::endl;
+        }
+        try {
+            r.second->postHandle(request);
+        } catch(std::exception& e) {
+            std::cout << "DoMsgHandler Error: " << e.what() << std::endl;
+        }
     }
-    it->second->preHandle(request);
-    it->second->handle(request);
-    it->second->postHandle(request);
 }
 
 //addRouter 添加消息执行对应的Router

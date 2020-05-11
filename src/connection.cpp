@@ -27,8 +27,10 @@ void Connection::startRead(boost::asio::yield_context yield) {
     //创建拆解包对象
     //读取客户端户message head的数据流的前八个字节
     size_t len = DataPack().getHeadLen();
+    auto msg = std::make_shared<Message>();
+
     try {
-        boost::asio::async_read(socket_, readerBuffer_, boost::asio::transfer_exactly(len), yield);
+        boost::asio::async_read(socket_, msg->getData().buf(), boost::asio::transfer_exactly(len), yield);
     } catch(std::exception& ec) {
         std::cout << "[Writer exits error] " << ec.what() << std::endl;
         //读取错误或终止时
@@ -38,12 +40,15 @@ void Connection::startRead(boost::asio::yield_context yield) {
         return;
     }
 
+
     //拆包:读取messageID和Len放进headData
-    Message msg = DataPack().unpack(readerBuffer_);
-    //拆包:读取data
-    len = msg.getMsgLen();
+    uint32_t id;
+    msg->getData() >> len;
+    msg->getData() >> id;
+    msg->setMsgLen(len);
+    msg->setMsgID(id);
     try {
-        boost::asio::async_read(socket_, readerBuffer_, boost::asio::transfer_exactly(len), yield);
+        boost::asio::async_read(socket_, msg->getData().buf(), boost::asio::transfer_exactly(len), yield);
     } catch(std::exception& ec) {
         std::cout << "[Writer exits error] " << ec.what() << std::endl;
         //读取错误或终止时
@@ -52,10 +57,6 @@ void Connection::startRead(boost::asio::yield_context yield) {
         stop();
         return;
     }
-    std::iostream ios(&readerBuffer_);
-    char data[len];
-    ios.read(data, len);
-    msg.setData(data, len);
 
     auto self(shared_from_this());
 
@@ -161,19 +162,23 @@ void Connection::stop() {
     }
 }
 
+//TODO:startWrite放到sendMsg
 //SendMsg 发送数据
 void Connection::sendMsg(uint32_t msgID, const char* data, size_t size) {
-    DataPack().pack(writerBuffer_, Message(msgID, data, size));
+    Message msg(msgID, data, size);
+    DataPack().pack(writerBuffer_, msg);
 }
 
 //SendMsg 发送数据
 void Connection::sendMsg(uint32_t msgID, const std::vector<char>& data) {
-    DataPack().pack(writerBuffer_, Message(msgID, data.data(), data.size()));
+    Message msg(msgID, data.data(), data.size());
+    DataPack().pack(writerBuffer_, msg);
 }
 
 //SendMsg 发送数据
 void Connection::sendMsg(uint32_t msgID, const std::string& data) {
-    DataPack().pack(writerBuffer_, Message(msgID, data.data(), data.size()));
+    Message msg(msgID, data.data(), data.size());
+    DataPack().pack(writerBuffer_, msg);
 }
 
 //SendMsg 发送数据
@@ -189,7 +194,7 @@ void Connection::sendMsg(uint32_t msgID, boost::asio::streambuf& data) {
 }
 
 //SendMsg 发送数据
-void Connection::sendMsg(const Message& msg) {
+void Connection::sendMsg(Message& msg) {
     DataPack().pack(writerBuffer_, msg);
 }
 

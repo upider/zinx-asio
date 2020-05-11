@@ -7,6 +7,7 @@
  */
 
 #include <iostream>
+#include <sstream>
 #include <boost/asio.hpp>
 #include <boost/system/system_error.hpp>
 
@@ -18,7 +19,7 @@ int main(void)
     //ByteBuffer<>的模板参数是分配器
     //这样就可以使用__gnu_cxx::__pool_alloc<char>
     //默认分配器std::::allocator<char>
-    ByteBuffer<> buffer;
+    zinx_asio::ByteBuffer<> buffer;
     //测试read-write
     std::cout << "==========read-write=========" << std::endl;
     buffer.writeInt8(50);
@@ -30,6 +31,12 @@ int main(void)
     std::cout << x << std::endl;
     std::cout << xx << std::endl;
 
+    //测试ByteBuffer之间的<<和>>
+    std::cout << "===========ByteBuffer之间的<<和>>========" << std::endl;
+    zinx_asio::ByteBuffer<> buffer2;
+    buffer << "buffer2";
+    std::cout << buffer << std::endl;
+
     //测试<<和>>
     std::cout << "===========<<和>>========" << std::endl;
     buffer.writeInt8(50);
@@ -39,6 +46,20 @@ int main(void)
     buffer >> y >> yy;
     std::cout << y << std::endl;
     std::cout << yy << std::endl;
+
+    //测试复制
+    std::cout << "===========移动语义========" << std::endl;
+    buffer << "ooooo";
+    auto lam = [](zinx_asio::ByteBuffer<>&& buf) {
+        std::cout << buf << std::endl;
+    };
+    lam(std::move(buffer));
+
+    //测试toString
+    std::cout << "===========toString========" << std::endl;
+    buffer << "oooooooooppppppppppp";
+    auto str = buffer.toString();
+    std::cout << str << std::endl;
 
     //测试网络发送
     std::cout << "===========socket========" << std::endl;
@@ -69,8 +90,8 @@ int main(void)
         boost::asio::read(socket, buffer.buf(), boost::asio::transfer_exactly(size));
         std::cout <<  "Server send back " << size << " bytes"
                   << " MsgID = " << id
-                  << " message is " << buffer;
-        std::cout << std::endl;
+                  << " message is " << buffer
+                  << std::endl;
     }
 
     socket.cancel();

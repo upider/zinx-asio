@@ -1,5 +1,8 @@
 #include <iostream>
+#include <sstream>
 #include "byte_buffer.hpp"
+
+namespace zinx_asio { //namespace zinx_asio
 
 template <>
 ByteBuffer<>::ByteBuffer(std::size_t maxSize) {}
@@ -255,6 +258,14 @@ boost::asio::basic_streambuf<>& ByteBuffer<>::buf() {
     return data_;
 }
 
+//变成std::string
+template <>
+std::string ByteBuffer<>::toString() {
+    std::ostringstream os;
+    os << &data_;
+    return os.str();
+}
+
 template <>
 boost::asio::basic_streambuf<>::const_buffers_type ByteBuffer<>::data() const {
     return data_.data();
@@ -267,3 +278,29 @@ ByteBuffer<>& ByteBuffer<>::operator<<(const std::string& str) {
     os << str;
     return *this;
 }
+
+///operator>>
+template <>
+ByteBuffer<>& ByteBuffer<>::operator>>(std::string& str) {
+    std::istream is(&data_);
+    is >> str;
+    return *this;
+}
+
+///operator<<
+template <>
+ByteBuffer<>& ByteBuffer<>::operator<<(ByteBuffer<>& other) {
+    std::ostream os(&data_);
+    os << &other.buf();
+    return *this;
+}
+
+///operator>>
+template <>
+ByteBuffer<>& ByteBuffer<>::operator>>(ByteBuffer<>& other) {
+    std::istream is(&data_);
+    is >> &other.buf();
+    return *this;
+}
+
+}//namespace zinx_asio

@@ -17,8 +17,9 @@ class Request;
 
 class MessageManager {
     public:
+        ///默认构造
         MessageManager();
-        virtual ~MessageManager ();
+        virtual ~MessageManager();
         //doMsgHandler 调度或执行对应的Router
         void doMsgHandler(Request& request)const;
         //addRouter 添加消息执行对应的Router

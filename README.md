@@ -62,6 +62,7 @@ Message包装成Request---->Connection对应的的消息管理模块调用Router
 是打印的log信息不是错误 
 2. 客户端代码如下:
 Message形式为uint32_t(len)|uint32_t(ID)|char(内容)
+len表示内容部分长度
 
 ```c
     size_t size = zinx_asio::DataPack().getHeadLen();
@@ -112,4 +113,4 @@ Message形式为uint32_t(len)|uint32_t(ID)|char(内容)
 
 ## TODO
 
-1. ByteBufffer整合到服务器
+1. ByteBuffer整合到服务器

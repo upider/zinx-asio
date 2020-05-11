@@ -9,45 +9,55 @@
 #include <thread>
 #include <chrono>
 
+#include "byte_buffer.hpp"
 #include "request.hpp"
 #include "server.hpp"
 
 //PingRouter 使用ping 测试路由
 class PingRouter: virtual public zinx_asio::Router {
     public:
-        PingRouter() {}
-        virtual~PingRouter() {}
+        PingRouter() {
+            std::cout << "+++++++++++++++++PingRouter()++++++++++++++" << std::endl;
+        }
+        virtual ~PingRouter() {}
         //Handle ping
         void handle(zinx_asio::Request& request) {
+            //得到对应连接
             auto conn = request.getConnection();
-            auto& data = request.getData();
+            //得到ByteBuffer
+            auto& data = request.getMsg()->getData();
             printf("Ping Handle------Receive from %d Connection, Message ID is %d, Message is \"%s\"\n",
-                   conn->getConnID(), request.getMsgID(), data.data());
+                   conn->getConnID(), request.getMsgID(), data.toString().c_str());
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             conn->sendMsg(conn->getConnID(), "Server PingRouter get message", 30);
         }
         void preHandle(zinx_asio::Request&) {}
         void postHandle(zinx_asio::Request&) {}
+
+    private:
+        zinx_asio::ByteBuffer<> byteBuf;
 };
 
 //PingRouter 使用ping 测试路由
 class HelloRouter: virtual public zinx_asio::Router {
     public:
-        HelloRouter() {}
+        HelloRouter() {
+            std::cout << "+++++++++++++++++HelloRouter()++++++++++++++" << std::endl;
+        }
         virtual ~HelloRouter() {}
         //Handle ping
         void handle(zinx_asio::Request& request) {
             auto conn = request.getConnection();
-            auto& data = request.getData();
+            //得到ByteBuffer
+            auto& data = request.getMsg()->getData();
             printf("Hello Handle------Receive from %d Connection, Message ID is %d, Message is \"%s\"\n",
-                   conn->getConnID(), request.getMsgID(), data.data());
+                   conn->getConnID(), request.getMsgID(), data.toString().c_str());
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             conn->sendMsg(conn->getConnID(), "Server HelloRouter get message", 30);
         }
         void preHandle(zinx_asio::Request& request) {}
         void postHandle(zinx_asio::Request& request) {}
 };
-
 
 int main() {
     //创建server
@@ -61,9 +71,15 @@ int main() {
         std::cout << "**************OnConnStop***************" << std::endl;
     });
 
-    //添加Router,业务处理方法,根据message ID 不同调用不同的方法
-    s.addRouter(0, std::make_shared<PingRouter>());
-    s.addRouter(1, std::make_shared<HelloRouter>());
+    //注册Router类名,注册后才能使用
+    //ID,类名,这里使用的是宏定义,所以直接写类名
+    RegisterRouterClass(0, PingRouter);
+    RegisterRouterClass(1, HelloRouter);
+    //添加Router,业务处理方法
+    //ID,名称
+    //添加的Router会依次调用(按照ID)
+    s.addRouter(0, "PingRouter");
+    s.addRouter(1, "HelloRouter");
 
     //开始监听
     s.listen();

@@ -20,12 +20,6 @@ class Server {
         virtual ~Server ();
 
     public:
-        //getConnMgr 返回连接管理模块
-        std::shared_ptr<ConnManager> getConnMgr();
-        //getConnMgr 返回连接管理模块
-        std::shared_ptr<MessageManager> getRouters();
-        //getTaskWorkerPool 返回连接管理模块
-        std::shared_ptr<io_context_pool>& getTaskWorkerPool();
         //accept
         void doAccept(size_t acceptorIndex);
         //start 开始
@@ -37,7 +31,7 @@ class Server {
         //server 运行
         void serve();
         //addRouter 添加路由
-        void addRouter(uint32_t, std::shared_ptr<Router>);
+        void addRouter(uint32_t, const std::string&);
         //setOnConnStart 注册OnConnStart
         void setOnConnStart(std::function<void(Conn_ptr)>);
         //setOnConnStop 注册OnConnStop
@@ -55,9 +49,19 @@ class Server {
             }
             return *this;
         }
+
+        //getConnMgr 返回连接管理模块
+        std::shared_ptr<ConnManager> getConnMgr();
+        //RouterMap 返回连接管理模块
+        std::map<uint32_t, std::string> getRouters();
+        //getTaskWorkerPool 返回连接管理模块
+        std::shared_ptr<io_context_pool>& getTaskWorkerPool();
+
     private:
+        //TODO:
         //给Connection设置套接字选项
         void setSocketOptions(Conn_ptr);
+
     private:
         //ioWorker池的worker数量
         uint32_t ioWorkerPoolSize_;
@@ -73,10 +77,8 @@ class Server {
         bool running_;
         //服务器名称
         std::string name_;
-        //ip版本
-        std::string IPVersion_;
-        //消息管理模块
-        std::shared_ptr<MessageManager> routers_ptr;
+        //router ID与名称
+        std::map<uint32_t, std::string> routerMap_;
         //连接管理模块
         std::shared_ptr<ConnManager> connMgr_ptr;
         //Connection创建连接之后自动调用

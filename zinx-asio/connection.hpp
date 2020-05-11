@@ -44,7 +44,7 @@ class Connection: public std::enable_shared_from_this<Connection> {
         //SendMsg 发送数据
         void sendMsg(uint32_t msgID, boost::asio::streambuf&);
         //SendMsg 发送数据
-        void sendMsg(const Message&);
+        void sendMsg(Message&);
         //getRemoteEndpoint 获取客户端的TCP状态IP和Port
         boost::asio::ip::tcp::endpoint getRemoteEndpoint();
         //getLocalEndpoint 获取本地的TCP状态IP和Port
@@ -59,7 +59,7 @@ class Connection: public std::enable_shared_from_this<Connection> {
         //最大连接时间
         size_t maxConnTime_;
         //当前连接状态
-		std::atomic_bool isClosed_;
+        std::atomic_bool isClosed_;
         //读写协程的数据缓冲
         boost::asio::streambuf readerBuffer_;
         //读写协程的数据缓冲
@@ -69,6 +69,7 @@ class Connection: public std::enable_shared_from_this<Connection> {
         std::weak_ptr<ConnManager> connMgr_wptr;
         //消息管理模块
         std::shared_ptr<MessageManager> routers_ptr;
+        //std::unique_ptr<MessageManager> routers_ptr;
         //保证异步执行顺序,封装协程
         boost::asio::io_context::strand strand_;
         //Connection 连接时间定时

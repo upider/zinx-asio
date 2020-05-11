@@ -13,7 +13,6 @@ Server::Server()
       taskWorkerQueueNum_(GlobalObject::getInstance().TaskWorkerQueueNum),
       ioWorkerPool_(new io_context_pool(ioWorkerPoolSize_, ioWorkerPoolSize_)),
       name_(GlobalObject::getInstance().Name),
-      routers_ptr(new MessageManager()),
       connMgr_ptr(new ConnManager()) {
 
     assert(taskWorkerPoolSize_ >= taskWorkerQueueNum_ && taskWorkerQueueNum_ >= 0);
@@ -35,10 +34,16 @@ Server::~Server() {
 }
 
 void Server::doAccept(size_t acceptorIndex) {
+    //生成MessageManager
+    auto msgMgr = std::make_shared<MessageManager>();
+    for (auto r : routerMap_) {
+        msgMgr->addRouter(r.first, CreateRouterObject(r.first));
+    }
+
     //生成新的套接字
     auto newConn = std::make_shared<Connection>(this, ioWorkerPool_->getCtx(),
                    cid_++, GlobalObject::getInstance().MaxConnTime,
-                   connMgr_ptr, routers_ptr);
+                   connMgr_ptr, msgMgr);
 
     //开始等待连接
     std::cout << "Acceptor " << acceptorIndex << " start Accepting Connection" << std::endl;
@@ -130,8 +135,8 @@ void Server::serve() {
 }
 
 //addRouter 添加路由
-void Server::addRouter(uint32_t msgID, std::shared_ptr<Router> router) {
-    routers_ptr->addRouter(msgID, router);
+void Server::addRouter(uint32_t msgID, const std::string& name) {
+    routerMap_[msgID] = name;
 }
 
 //setOnConnStart 注册OnConnStart

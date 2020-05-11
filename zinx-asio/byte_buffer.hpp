@@ -3,7 +3,8 @@
 
 #include <boost/asio/basic_streambuf.hpp>
 
-//TODO:不能声明const ByteBuffer,无意义
+namespace zinx_asio { //namespace zinx_asio
+
 template <typename Allocator = std::allocator<char>>
 class ByteBuffer {
     public:
@@ -108,8 +109,17 @@ class ByteBuffer {
         //返回boost::asio::const_buffer
         boost::asio::basic_streambuf<>::const_buffers_type data() const;
 
+        //变成std::string
+        std::string toString();
+
         ///operator<<
         ByteBuffer<>& operator<<(const std::string&);
+        ///operator<<
+        ByteBuffer<>& operator>>(std::string&);
+        ///operator<<
+        ByteBuffer<>& operator<<(ByteBuffer<>&);
+        ///operator>>
+        ByteBuffer<>& operator>>(ByteBuffer<>&);
 
         ///operator<<
         template <typename T>
@@ -117,7 +127,6 @@ class ByteBuffer {
         ///operator>>
         template <typename T>
         friend std::ostream& operator >> (std::istream&, const ByteBuffer<T>&);
-
 
     private:
         boost::asio::basic_streambuf<Allocator> data_;
@@ -135,4 +144,5 @@ std::ostream& operator >> (std::istream& in, ByteBuffer<T>& byteBuf) {
     return in >> &byteBuf.buf();
 }
 
+}//namespace zinx_asio
 #endif /* BYTEBUFFER_HPP */

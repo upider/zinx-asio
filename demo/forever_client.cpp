@@ -32,29 +32,28 @@ void client0(boost::asio::io_context& ioc) {
     }
 
     char m[34] = "hello this is client-0 message-0";
-    boost::asio::streambuf buf;
     size_t size = zinx_asio::DataPack().getHeadLen();
     try {
         for (;;) {
             //消息打包
             zinx_asio::Message msgA(0, m, 29);
-            //使用string作为消息载体
-            std::string charBuf;
-            zinx_asio::DataPack().pack(charBuf, msgA);
-            boost::asio::write(socket, boost::asio::buffer(charBuf));
+            boost::asio::write(socket, msgA.getData().buf());
 
-            zinx_asio::Message msgB(1, "hello this is client-0 message-1", 33);
-            zinx_asio::DataPack().pack(buf, msgB);
-            boost::asio::write(socket, buf.data());
-            //buf.consume(buf.size());
+            zinx_asio::Message msgB(1, "hello this is client message", 29);
+            boost::asio::write(socket, msgA.getData().buf());
             //消息拆包
-            boost::asio::read(socket, buf, transfer_exactly(size));
-            auto msg2 = zinx_asio::DataPack().unpack(buf);
-            //buf.consume(size);
-            boost::asio::read(socket, buf, transfer_exactly(msg2.getMsgLen()));
+            zinx_asio::Message msg2;
+            boost::asio::read(socket, msg2.getData().buf(), transfer_exactly(size));
+            uint32_t len;
+            uint32_t id;
+            msg2.getData() >> len;
+            msg2.getData() >> id;
+            msg2.setMsgID(id);
+            msg2.setMsgLen(len);
+
+            boost::asio::read(socket, msg2.getData().buf(), transfer_exactly(len));
             std::cout <<  "Server send back " << msg2.getMsgLen() << " bytes"
-                      << "message is " << &buf << std::endl;
-            //buf.consume(buf.size());
+                      << "message is " << msg2.getData();
         }
         socket.shutdown(boost::asio::socket_base::shutdown_send);
         socket.close();
@@ -77,31 +76,28 @@ void client1(boost::asio::io_context& ioc) {
         std::cout << e.what() << std::endl;
     }
 
-    char m[34] = "hello this is client-1 message-0";
-    boost::asio::streambuf buf;
-    size_t size = zinx_asio::DataPack().getHeadLen();
+    zinx_asio::ByteBuffer<> buffer;
+    //消息格式uint32-长度|uint32-ID|内容
     try {
         for (;;) {
-            //消息打包
-            zinx_asio::Message msgA(0, m, 29);
-            //使用string作为消息载体
-            std::string charBuf;
-            zinx_asio::DataPack().pack(charBuf, msgA);
-            boost::asio::write(socket, boost::asio::buffer(charBuf));
+            //写入len和id
+            std::string s {"this is forever client"};
+            buffer.writeUint32(s.size()).writeUint32(0);
+            buffer << s;
 
-            zinx_asio::Message msgB(1, "hello this is client-1 message-1", 33);
-            zinx_asio::DataPack().pack(buf, msgB);
-            boost::asio::write(socket, buf.data());
-            buf.consume(buf.size());
-            //消息拆包
-            buf.prepare(size);
-            boost::asio::read(socket, buf, transfer_exactly(size));
-            auto msg2 = zinx_asio::DataPack().unpack(buf);
-            buf.consume(size);
-            boost::asio::read(socket, buf, transfer_exactly(msg2.getMsgLen()));
-            std::cout <<  "Server send back " << msg2.getMsgLen() << " bytes"
-                      << "message is " << &buf << std::endl;
-            buf.consume(buf.size());
+            //使用data()方法需要自己处理缓冲区指针
+            //boost::asio::write(socket, buffer.data(), boost::asio::transfer_exactly(buffer.size()));
+            //buffer.consume(buffer.size());
+
+            boost::asio::write(socket, buffer.buf(), boost::asio::transfer_exactly(buffer.size()));
+            uint32_t size = zinx_asio::DataPack().getHeadLen();
+            boost::asio::read(socket, buffer.buf(), boost::asio::transfer_exactly(size));
+            uint32_t id;
+            buffer >> size >> id;
+            boost::asio::read(socket, buffer.buf(), boost::asio::transfer_exactly(size));
+            std::cout <<  "Server send back " << size << " bytes"
+                      << " MsgID = " << id
+                      << " message is " << buffer << std::endl;
         }
         socket.shutdown(boost::asio::socket_base::shutdown_send);
         socket.close();

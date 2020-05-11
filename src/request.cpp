@@ -1,19 +1,23 @@
 #include "request.hpp"
 
 namespace zinx_asio {//namespace zinx_asio
-Request::Request(Message msg, std::shared_ptr<Connection> conn)
+Request::Request(std::shared_ptr<Message> msg, std::shared_ptr<Connection> conn)
     : msg_(msg), conn_ptr(conn) {}
 
 Request::Request() {}
 
 Request::~Request() {}
 
-uint32_t Request::getMsgID() const {
-    return msg_.getMsgID();
+std::shared_ptr<Message> Request::getMsg() {
+    return msg_;
 }
 
-const std::vector<char>& Request::getData() const {
-    return msg_.getData();
+uint32_t Request::getMsgID() {
+    return msg_->getMsgID();
+}
+
+uint32_t Request::getMsgLen() {
+    return msg_->getMsgLen();
 }
 
 std::shared_ptr<Connection> Request::getConnection() {
