@@ -149,7 +149,7 @@ class ByteBuffer {
         void consume(std::size_t);
         ///放进已经接受的数据
         void commit(std::size_t);
-        ///放回streambuf
+        ///返回streambuf
         boost::asio::basic_streambuf<Allocator>& buf();
 
         //返回std::string
@@ -159,6 +159,8 @@ class ByteBuffer {
         //不移动读写指针
         std::vector<char> toVector();
 
+        //copyToRawBuffer
+        ByteBuffer& copyToRawBuffer(char*, std::size_t);
         //copyToString
         //不移动读写指针
         ByteBuffer& copyToString(std::string&);
@@ -490,6 +492,15 @@ template <typename Allocator>
 std::vector<char> ByteBuffer<Allocator>::toVector() {
     auto cbt = data_.data();
     return std::vector<char>(boost::asio::buffers_begin(cbt), boost::asio::buffers_end(cbt));
+}
+
+//copyToRawBuffer
+template <typename Allocator>
+ByteBuffer<Allocator>& ByteBuffer<Allocator>::copyToRawBuffer(char* dest, std::size_t size) {
+    auto cbt = data_.data();
+    std::size_t n = size < data_.size() ? size : data_.size();
+    std::copy_n(boost::asio::buffers_begin(cbt), n, dest);
+    return *this;
 }
 
 //copyToString

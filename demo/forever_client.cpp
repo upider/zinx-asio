@@ -100,9 +100,12 @@ void client1(boost::asio::io_context& ioc) {
             char chars[size];
             std::cout << "Read Data Head" << std::endl;
             boost::asio::read(socket, boost::asio::buffer(chars, size), boost::asio::transfer_exactly(size));
-            uint32_t id;
-            size = chars[0];
-            id = chars[4];
+
+            //解包
+            auto head = zinx_asio::DataPack().unpack(chars);
+            size = head.first;
+            uint32_t id = head.second;
+
             std::cout << "Read Data Body" << std::endl;
             boost::asio::read(socket, buffer.buf(), boost::asio::transfer_exactly(size));
             std::cout <<  "Server send back " << size << " bytes"
@@ -125,16 +128,16 @@ int main(int argc, char *argv[]) {
         v.push_back(new boost::asio::io_context(2));
     }
 
-    //std::thread t2([&v]() {
-    //    client1(*v[0]);
-    //    std::cout << "No." << o << " connection" << std::endl;
-    //    v[0]->run();
-    //});
+    std::thread t2([&v]() {
+        client0(*v[0]);
+        std::cout << "No." << 0 << " connection" << std::endl;
+        v[0]->run();
+    });
 
     client1(*v[1]);
     std::cout << "No." << 1 << " connection" << std::endl;
     v[1]->run();
-    //t2.join();
+    t2.join();
 
     //sleep(12);
     return 0;

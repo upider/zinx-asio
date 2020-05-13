@@ -23,14 +23,13 @@ void DataPack::pack(char* dataBuf, Message& msg) {
     //dataLen写进buf
     uint32_t len = msg.getMsgLen();
     std::memcpy(dataBuf + startPos, &len, sizeof(len));
-    startPos += sizeof(len);
+    startPos += sizeof(uint32_t);
     //dataID写进buf
     uint32_t id = msg.getMsgID();
     std::memcpy(dataBuf + startPos, &id, sizeof(id));
-    startPos += sizeof(id);
+    startPos += sizeof(uint32_t);
     //data写进buf
-    msg.getData().read(dataBuf + startPos, len);
-    //std::memcpy(dataBuf + startPos, msg.getData().data(), msg.getData().size());
+    msg.getData().copyToRawBuffer(dataBuf + startPos, len);
 }
 
 //Pack 封包:len,ID,data
@@ -43,10 +42,11 @@ void DataPack::pack(boost::asio::streambuf& dataBuf, Message& msg) {
     uint32_t id = msg.getMsgID();
     os.write((char*)(&id), sizeof(id));
     //data写进buf
-    os << msg.getData();
+    os << msg.getData().toString();
 }
 
 void DataPack::pack(std::string& dataBuf, Message& msg) {
+    dataBuf.reserve(sizeof(uint32_t) + msg.getMsgLen());
     //dataLen写进buf
     uint32_t len = msg.getMsgLen();
     dataBuf.reserve(msg.getMsgLen() + getHeadLen());
@@ -61,10 +61,11 @@ void DataPack::pack(std::string& dataBuf, Message& msg) {
     dataBuf[5] = (id >> 16) & 255;
     dataBuf[6] = (id >> 8) & 255;
     dataBuf[7] = id & 255;
-    msg.getData() >> dataBuf;
+    dataBuf += msg.getData().toString();
 }
 
 void DataPack::pack(std::vector<char>& dataBuf, Message& msg) {
+    dataBuf.reserve(sizeof(uint32_t) + msg.getMsgLen());
     //dataLen写进buf
     uint32_t len = msg.getMsgLen();
     dataBuf.reserve(msg.getMsgLen() + getHeadLen());
@@ -79,27 +80,36 @@ void DataPack::pack(std::vector<char>& dataBuf, Message& msg) {
     dataBuf[5] = (id >> 16) & 255;
     dataBuf[6] = (id >> 8) & 255;
     dataBuf[7] = id & 255;
-    for (size_t i = 0; i < msg.getMsgLen(); ++i) {
-        dataBuf[i + 8] = msg.getData().buf().sbumpc();
+    for (auto i : msg.getData().toString()) {
+        dataBuf.push_back(i);
     }
 }
 
+//msg打包进ByteBuffer,得到的string是不可读的,但是可以直接用asio::buffer()发送
+template<typename T>
+void DataPack::pack(zinx_asio::ByteBuffer<T>& dataBuf, Message& msg) {
+    dataBuf << msg.getMsgLen() << msg.getMsgID();
+    dataBuf << msg.getData().toString();
+}
+
 //Unpack 拆包:读取数据包头
-std::tuple<uint32_t, uint32_t> DataPack::unpack(const char* dataBuf) {
+std::pair<uint32_t, uint32_t> DataPack::unpack(const char* dataBuf) {
     //读dataLen
-    uint32_t len = (uint32_t)dataBuf[0];
+    uint32_t len;
+    std::memcpy((char*)(&len), dataBuf, 4);
     //读msgID
-    uint32_t id = (uint32_t)dataBuf[4];
+    uint32_t id;
+    std::memcpy((char*)(&id), dataBuf + 4, 4);
 
     if(GlobalObject::getInstance().MaxPackageSize > 0
             && len > GlobalObject::getInstance().MaxPackageSize) {
         throw std::logic_error("excess MaxPackageSize");
     }
-    return std::make_tuple(len, id);
+    return std::make_pair(len, id);
 }
 
 //Unpack 拆包:读取数据包头
-std::tuple<uint32_t, uint32_t> DataPack::unpack(boost::asio::streambuf& dataBuf) {
+std::pair<uint32_t, uint32_t> DataPack::unpack(boost::asio::streambuf& dataBuf) {
     std::iostream ios(&dataBuf);
     uint32_t len = 0;
     uint32_t id = 0;
@@ -112,7 +122,63 @@ std::tuple<uint32_t, uint32_t> DataPack::unpack(boost::asio::streambuf& dataBuf)
             && len > GlobalObject::getInstance().MaxPackageSize) {
         throw std::logic_error("excess MaxPackageSize");
     }
-    return std::make_tuple(len, id);
+    return std::make_pair(len, id);
+}
+
+//拆包:拿到msgLen和msgID
+//Message的data中的前八个字节被取出,并拆包到message的len和id中
+std::pair<uint32_t, uint32_t> DataPack::unpack(Message& msg) {
+    uint32_t len;
+    uint32_t id;
+    msg.getData() >> len >> id;
+    if(GlobalObject::getInstance().MaxPackageSize > 0
+            && len > GlobalObject::getInstance().MaxPackageSize) {
+        throw std::logic_error("excess MaxPackageSize");
+    }
+    msg.setMsgLen(len);
+    msg.setMsgID(id);
+    return std::make_pair(len, id);
+}
+
+//拆包:拿到msgLen和msgID
+//char* 中数据不变
+void DataPack::unpack(uint32_t &len, uint32_t &id, const char* dataBuf) {
+    //读dataLen
+    std::memcpy((char*)(&len), dataBuf, 4);
+    //读msgID
+    std::memcpy((char*)(&id), dataBuf + 4, 4);
+
+    if(GlobalObject::getInstance().MaxPackageSize > 0
+            && len > GlobalObject::getInstance().MaxPackageSize) {
+        throw std::logic_error("excess MaxPackageSize");
+    }
+}
+
+//拆包:拿到msgLen和msgID
+//streambuf的前八个字节被取出
+void DataPack::unpack(uint32_t &len, uint32_t &id, boost::asio::streambuf& dataBuf) {
+    std::iostream ios(&dataBuf);
+    //读dataLen
+    ios.read((char*)(&len), 4);
+    //读msgID
+    ios.read((char*)(&id), 4);
+
+    if(GlobalObject::getInstance().MaxPackageSize > 0
+            && len > GlobalObject::getInstance().MaxPackageSize) {
+        throw std::logic_error("excess MaxPackageSize");
+    }
+}
+
+//拆包:拿到msgLen和msgID
+//Message的data中的前八个字节被取出,并拆包到message的len和id中
+void DataPack::unpack(uint32_t &len, uint32_t &id, Message& msg) {
+    msg.getData() >> len >> id;
+    if(GlobalObject::getInstance().MaxPackageSize > 0
+            && len > GlobalObject::getInstance().MaxPackageSize) {
+        throw std::logic_error("excess MaxPackageSize");
+    }
+    msg.setMsgLen(len);
+    msg.setMsgID(id);
 }
 
 }//namespace zinx_asio

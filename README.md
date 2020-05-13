@@ -156,7 +156,9 @@ Message包装成Request---->Connection对应的的消息管理模块调用Router
    };
    ```
 
-5. Server:服务器主体
+5. DataPack:数据打包和拆包的行为封装,让数据打包和拆包更方便
+
+6. Server:服务器主体
 
 ## 注意
 `[Writer exits error] Bad file descriptor`和

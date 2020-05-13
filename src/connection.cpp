@@ -27,6 +27,7 @@ void Connection::startRead(boost::asio::yield_context yield) {
     //创建拆解包对象
     //读取客户端户message head的数据流的前八个字节
     uint32_t len = DataPack().getHeadLen();
+    uint32_t id{0};
     auto msg = std::make_shared<Message>();
 
     try {
@@ -40,10 +41,15 @@ void Connection::startRead(boost::asio::yield_context yield) {
     }
 
     //拆包:读取messageID和Len放进headData
-    uint32_t id;
-    msg->getData() >> len >> id;
-    msg->setMsgLen(len);
-    msg->setMsgID(id);
+    //解包错误,直接关闭客户端
+    try {
+        DataPack().unpack(len, id, *msg);
+    } catch(const std::exception& e) {
+        std::cout << "[Data Unpack Error] " << e.what() << '\n';
+        //读取错误或终止时
+        stop();
+    }
+
     try {
         boost::asio::async_read(socket_, msg->getData().buf(),
                                 boost::asio::transfer_exactly(len), yield);
