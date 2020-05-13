@@ -16,14 +16,12 @@
 #include "data_pack.hpp"
 #include "message.hpp"
 
-using namespace boost::asio;
-
 //模拟客户端
 void client0(boost::asio::io_context& ioc) {
     printf("=============client start==============\n");
     boost::asio::ip::tcp::socket socket(ioc);
     boost::asio::ip::tcp::endpoint endpoint(
-        ip::address::from_string("127.0.0.1"), 9999);
+        boost::asio::ip::address::from_string("127.0.0.1"), 9999);
 
     try {
         socket.connect(endpoint);
@@ -31,19 +29,24 @@ void client0(boost::asio::io_context& ioc) {
         std::cout << e.what() << std::endl;
     }
 
-    char m[34] = "hello this is client-0 message-0";
+    std::string str = "hello this is client-0 message-0";
+    std::string str2 = "hello this is forever_client message";
+
     size_t size = zinx_asio::DataPack().getHeadLen();
+    zinx_asio::ByteBuffer<> buffer;
     try {
         for (;;) {
             //消息打包
-            zinx_asio::Message msgA(0, m, 29);
-            boost::asio::write(socket, msgA.getData().buf());
+            buffer.writeUint32(str.size()).writeUint32(0);
+            buffer << str;
+            boost::asio::write(socket, buffer.buf(), boost::asio::transfer_exactly(buffer.size()));
 
-            zinx_asio::Message msgB(1, "hello this is client message", 29);
-            boost::asio::write(socket, msgA.getData().buf());
+            buffer.writeUint32(str2.size()).writeUint32(0);
+            buffer << str2;
+            boost::asio::write(socket, buffer.buf(), boost::asio::transfer_exactly(buffer.size()));
             //消息拆包
             zinx_asio::Message msg2;
-            boost::asio::read(socket, msg2.getData().buf(), transfer_exactly(size));
+            boost::asio::read(socket, msg2.getData().buf(), boost::asio::transfer_exactly(size));
             uint32_t len;
             uint32_t id;
             msg2.getData() >> len;
@@ -51,9 +54,9 @@ void client0(boost::asio::io_context& ioc) {
             msg2.setMsgID(id);
             msg2.setMsgLen(len);
 
-            boost::asio::read(socket, msg2.getData().buf(), transfer_exactly(len));
+            boost::asio::read(socket, msg2.getData().buf(), boost::asio::transfer_exactly(len));
             std::cout <<  "Server send back " << msg2.getMsgLen() << " bytes"
-                      << "message is " << msg2.getData();
+                      << "message is " << msg2.getData() << std::endl;
         }
         socket.shutdown(boost::asio::socket_base::shutdown_send);
         socket.close();
@@ -68,7 +71,7 @@ void client1(boost::asio::io_context& ioc) {
     printf("=============client start==============\n");
     boost::asio::ip::tcp::socket socket(ioc);
     boost::asio::ip::tcp::endpoint endpoint(
-        ip::address::from_string("127.0.0.1"), 8888);
+        boost::asio::ip::address::from_string("127.0.0.1"), 8888);
 
     try {
         socket.connect(endpoint);
@@ -76,8 +79,10 @@ void client1(boost::asio::io_context& ioc) {
         std::cout << e.what() << std::endl;
     }
 
+    //使用一个ByteBuffer接收和发送
     zinx_asio::ByteBuffer<> buffer;
     //消息格式uint32-长度|uint32-ID|内容
+    int i = 0;
     try {
         for (;;) {
             //写入len和id
@@ -85,19 +90,26 @@ void client1(boost::asio::io_context& ioc) {
             buffer.writeUint32(s.size()).writeUint32(0);
             buffer << s;
 
-            //使用data()方法需要自己处理缓冲区指针
-            //boost::asio::write(socket, buffer.data(), boost::asio::transfer_exactly(buffer.size()));
-            //buffer.consume(buffer.size());
+            std::cout << "Send No." << i << " Message" << std::endl;
+            std::cout << "buffer size before send = " << buffer.size() << std::endl;
+            boost::asio::write(socket, buffer.buf(), boost::asio::transfer_all());
 
-            boost::asio::write(socket, buffer.buf(), boost::asio::transfer_exactly(buffer.size()));
+            std::cout << "Read No." << i << " Message" << std::endl;
+            //uint32_t size = zinx_asio::DataPack().getHeadLen();
             uint32_t size = zinx_asio::DataPack().getHeadLen();
-            boost::asio::read(socket, buffer.buf(), boost::asio::transfer_exactly(size));
+            char chars[size];
+            std::cout << "Read Data Head" << std::endl;
+            boost::asio::read(socket, boost::asio::buffer(chars, size), boost::asio::transfer_exactly(size));
             uint32_t id;
-            buffer >> size >> id;
+            size = chars[0];
+            id = chars[4];
+            std::cout << "Read Data Body" << std::endl;
             boost::asio::read(socket, buffer.buf(), boost::asio::transfer_exactly(size));
             std::cout <<  "Server send back " << size << " bytes"
-                      << " MsgID = " << id
-                      << " message is " << buffer << std::endl;
+                      << " ConnID = " << id
+                      << " message is " << buffer << '\n';
+
+            i++;
         }
         socket.shutdown(boost::asio::socket_base::shutdown_send);
         socket.close();
@@ -113,16 +125,16 @@ int main(int argc, char *argv[]) {
         v.push_back(new boost::asio::io_context(2));
     }
 
-    std::thread t2([&v]() {
-        client1(*v[1]);
-        std::cout << "No." << 1 << " connection" << std::endl;
-        v[1]->run();
-    });
+    //std::thread t2([&v]() {
+    //    client1(*v[0]);
+    //    std::cout << "No." << o << " connection" << std::endl;
+    //    v[0]->run();
+    //});
 
-    client0(*v[0]);
-    std::cout << "No." << 0 << " connection" << std::endl;
-    v[0]->run();
-    t2.join();
+    client1(*v[1]);
+    std::cout << "No." << 1 << " connection" << std::endl;
+    v[1]->run();
+    //t2.join();
 
     //sleep(12);
     return 0;

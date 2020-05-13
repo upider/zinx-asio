@@ -60,6 +60,7 @@ class Connection: public std::enable_shared_from_this<Connection> {
         size_t maxConnTime_;
         //当前连接状态
         std::atomic_bool isClosed_;
+        //TODO:去掉读写buffer
         //读写协程的数据缓冲
         boost::asio::streambuf readerBuffer_;
         //读写协程的数据缓冲

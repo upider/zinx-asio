@@ -29,8 +29,12 @@ void Connection::startRead(boost::asio::yield_context yield) {
     size_t len = DataPack().getHeadLen();
     auto msg = std::make_shared<Message>();
 
+    char dataBuf[len];
     try {
-        boost::asio::async_read(socket_, msg->getData().buf(), boost::asio::transfer_exactly(len), yield);
+        std::cout << "Server Read Data Head " << len << " bytes" << "\n";
+        //boost::asio::async_read(socket_, msg->getData().buf(), boost::asio::transfer_exactly(len), yield);
+        boost::asio::async_read(socket_, boost::asio::buffer(dataBuf, len),
+                                boost::asio::transfer_exactly(len), yield);
     } catch(std::exception& ec) {
         std::cout << "[Writer exits error] " << ec.what() << std::endl;
         //读取错误或终止时
@@ -40,15 +44,18 @@ void Connection::startRead(boost::asio::yield_context yield) {
         return;
     }
 
-
     //拆包:读取messageID和Len放进headData
     uint32_t id;
-    msg->getData() >> len;
-    msg->getData() >> id;
+    len = dataBuf[0];
+    id = dataBuf[4];
+    //TODO:
+    //msg->getData() >> len >> id;
     msg->setMsgLen(len);
     msg->setMsgID(id);
     try {
-        boost::asio::async_read(socket_, msg->getData().buf(), boost::asio::transfer_exactly(len), yield);
+        std::cout << "Server Read Data Body: Body length is " << len << "\n";
+        boost::asio::async_read(socket_, msg->getData().buf(),
+                                boost::asio::transfer_exactly(len), yield);
     } catch(std::exception& ec) {
         std::cout << "[Writer exits error] " << ec.what() << std::endl;
         //读取错误或终止时
@@ -93,7 +100,7 @@ void Connection::startWrite(boost::asio::yield_context yield) {
     auto self(shared_from_this());
 
     try {
-        boost::asio::async_write(socket_, writerBuffer_.data(), boost::asio::transfer_exactly(writerBuffer_.size()), yield);
+        boost::asio::async_write(socket_, writerBuffer_, boost::asio::transfer_all(), yield);
     } catch(std::exception& ec) {
         std::cout << "[Writer exits error] " << ec.what() << std::endl;
         //读取错误或终止时
@@ -165,37 +172,64 @@ void Connection::stop() {
 //TODO:startWrite放到sendMsg
 //SendMsg 发送数据
 void Connection::sendMsg(uint32_t msgID, const char* data, size_t size) {
-    Message msg(msgID, data, size);
-    DataPack().pack(writerBuffer_, msg);
+    std::ostream os(&writerBuffer_);
+    //len
+    os.write((char*)(&size), sizeof(size));
+    //ID
+    os.write((char*)(&msgID), sizeof(msgID));
+    //数据
+    os.write(data, size);
 }
 
 //SendMsg 发送数据
 void Connection::sendMsg(uint32_t msgID, const std::vector<char>& data) {
-    Message msg(msgID, data.data(), data.size());
-    DataPack().pack(writerBuffer_, msg);
+    std::ostream os(&writerBuffer_);
+    uint32_t size = data.size();
+    //len
+    os.write((char*)&size, sizeof(size));
+    //ID
+    os.write((char*)&msgID, sizeof(msgID));
+    //数据
+    os.write(data.data(), size);
 }
 
 //SendMsg 发送数据
 void Connection::sendMsg(uint32_t msgID, const std::string& data) {
-    Message msg(msgID, data.data(), data.size());
-    DataPack().pack(writerBuffer_, msg);
+    std::ostream os(&writerBuffer_);
+    uint32_t size = data.size();
+    //len
+    os << size;
+    //os.write((char*)&size, sizeof(size));
+    //ID
+    os << msgID;
+    //os.write((char*)&msgID, sizeof(msgID));
+    //数据
+    os << data;
 }
 
 //SendMsg 发送数据
 void Connection::sendMsg(uint32_t msgID, boost::asio::streambuf& data) {
-    std::iostream ios(&writerBuffer_);
+    std::ostream os(&writerBuffer_);
     //dataLen写进buf
     uint32_t len = data.size();
-    ios.write((char*)(&len), 4);
+    os.write((char*)(&len), 4);
     //dataID写进buf
-    ios.write((char*)(&msgID), 4);
+    os.write((char*)(&msgID), 4);
     //data写进buf
-    ios << &data;
+    os << &data;
 }
 
 //SendMsg 发送数据
 void Connection::sendMsg(Message& msg) {
-    DataPack().pack(writerBuffer_, msg);
+    std::ostream os(&writerBuffer_);
+    //dataLen写进buf
+    uint32_t len = msg.getMsgLen();
+    os.write((char*)(&len), 4);
+    //dataID写进buf
+    uint32_t id = msg.getMsgID();
+    os.write((char*)(&id), 4);
+    //data写进buf
+    os << msg.getData();
 }
 
 //getSocket 获取当前连接绑定的socket

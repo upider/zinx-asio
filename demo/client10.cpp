@@ -37,24 +37,29 @@ void client0(boost::asio::io_context& ioc) {
     try {
         for (uint32_t i = 0; i < 5; ++i) {
             //写入len和id
-            std::string s {"this is client"};
-            buffer.writeUint32(s.size()).writeUint32(0);
+            std::string s {"This Is Client"};
+            uint32_t len = s.size();
+            uint32_t id = 0;
+            buffer.writeUint32(len).writeUint32(id);
             buffer << s;
 
-            //使用data()方法需要自己处理缓冲区指针
-            //boost::asio::write(socket, buffer.data(), boost::asio::transfer_exactly(buffer.size()));
-            //buffer.consume(buffer.size());
-
+            std::cout << "Send Data Size = " << buffer.size() << std::endl;
             boost::asio::write(socket, buffer.buf(), boost::asio::transfer_exactly(buffer.size()));
-            uint32_t size = zinx_asio::DataPack().getHeadLen();
-            boost::asio::read(socket, buffer.buf(), boost::asio::transfer_exactly(size));
-            uint32_t id;
-            buffer >> size >> id;
-            boost::asio::read(socket, buffer.buf(), boost::asio::transfer_exactly(size));
-            std::cout <<  "Server send back " << size << " bytes"
-                      << " MsgID = " << id
-                      << " message is " << buffer << std::endl;
-            //std::cout << std::endl;
+            len = zinx_asio::DataPack().getHeadLen();
+            char dataBuf[len];
+            std::cout << "Read Data Head: " << len << " bytes" << std::endl;
+            boost::asio::read(socket, boost::asio::buffer(dataBuf, len), boost::asio::transfer_exactly(len));
+
+            len = dataBuf[0];
+            id = dataBuf[4];
+
+            //buffer >> len >> id;
+            std::cout << "Read Data Body: " << len << " bytes" << std::endl;
+            boost::asio::streambuf sb;
+            boost::asio::read(socket, sb, boost::asio::transfer_exactly(len));
+            std::cout <<  "Server send back " << len << " bytes"
+                      << " ConnID = " << id
+                      << " message is " << &sb << '\n';
         }
         socket.shutdown(boost::asio::socket_base::shutdown_send);
         socket.close();

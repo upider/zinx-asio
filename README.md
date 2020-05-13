@@ -111,6 +111,11 @@ len表示内容部分长度
 读操作结束,将计算任务提交到TaskWorkerPool(线程池),并将协程挂起,计算结束恢复协程进行写操作
 + 第二版:将第一版的read和write的一个协程拆成两个,一个连接不会阻塞其他连接,将计算任务提交到TaskWorkerPool(线程池),同时提交异步写任务到IO线程
 
-## TODO
+## 重要组件
+1. Message: 包含消息ID,len和内容
+2. ByteBuffer: 由boost::asio::basic_streambuf包装,具有流式API:
+   所有流式API(>>和<<)以及readXXX和writeXXX,都会改变ByteBuffer内容
+3. Request: 包装了Connection和Message,在添加的Router之间传递,如果在某一个Router里数据被取出,后面的Router将不会拿到数据
 
-1. ByteBuffer整合到服务器
+## TODO
+去掉每个连接所带有的readBuffer和writeBuffer
