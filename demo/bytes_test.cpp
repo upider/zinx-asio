@@ -118,7 +118,7 @@ int main(void)
         buffer >> len >> id;
         boost::asio::read(socket, buffer.buf(), boost::asio::transfer_exactly(len));
         std::cout <<  "Server send back " << len << " bytes"
-                  << " ConnID = " << id
+                  << " MsgID = " << id
                   << " message is " << buffer << '\n';
         std::cout << "buffer size = " << buffer.size() << '\n';
     }

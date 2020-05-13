@@ -1,6 +1,7 @@
 #ifndef CONNECTION_HPP
 #define CONNECTION_HPP
 
+#include <iostream>
 #include <atomic>
 
 #include <boost/thread/shared_mutex.hpp>
@@ -9,6 +10,7 @@
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/asio/write.hpp>
 
 #include "message_manager.hpp"
 
@@ -25,8 +27,6 @@ class Connection: public std::enable_shared_from_this<Connection> {
         //startRead&startWrite要被包装成协程
         //startRead 读业务
         void startRead(boost::asio::yield_context yield);
-        //startWrite 写业务
-        void startWrite(boost::asio::yield_context yield);
         //start 启动链接
         void start();
         //stop 停止链接
@@ -45,6 +45,24 @@ class Connection: public std::enable_shared_from_this<Connection> {
         void sendMsg(uint32_t msgID, boost::asio::streambuf&);
         //SendMsg 发送数据
         void sendMsg(Message&);
+        //SendMsg 发送数据
+        template<typename T>
+        void sendMsg(ByteBuffer<T>& buffer) {
+            auto self(shared_from_this());
+            boost::asio::spawn(strand_,
+            [this, self, &buffer](boost::asio::yield_context yield) {
+                try {
+                    boost::asio::async_write(socket_, buffer.buf(),
+                                             boost::asio::transfer_all(), yield);
+                } catch(std::exception& ec) {
+                    std::cout << "[sendMsg exits error] " << ec.what() << '\n';
+                    //读取错误或终止时
+                    stop();
+                    return;
+                }
+            });
+        }
+
         //getRemoteEndpoint 获取客户端的TCP状态IP和Port
         boost::asio::ip::tcp::endpoint getRemoteEndpoint();
         //getLocalEndpoint 获取本地的TCP状态IP和Port
@@ -60,11 +78,8 @@ class Connection: public std::enable_shared_from_this<Connection> {
         size_t maxConnTime_;
         //当前连接状态
         std::atomic_bool isClosed_;
-        //TODO:去掉读写buffer
-        //读写协程的数据缓冲
-        boost::asio::streambuf readerBuffer_;
-        //读写协程的数据缓冲
-        boost::asio::streambuf writerBuffer_;
+        //是否超时
+        std::atomic_bool timeOut_{false};
         //当前connection所属的connManager
         //防止循环引用
         std::weak_ptr<ConnManager> connMgr_wptr;

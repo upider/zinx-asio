@@ -17,9 +17,7 @@
 //PingRouter 使用ping 测试路由
 class PingRouter: virtual public zinx_asio::Router {
     public:
-        PingRouter() {
-            std::cout << "+++++++++++++++++PingRouter()++++++++++++++" << std::endl;
-        }
+        PingRouter() {}
         virtual ~PingRouter() {}
         //Handle ping
         void handle(zinx_asio::Request& request) {
@@ -29,15 +27,13 @@ class PingRouter: virtual public zinx_asio::Router {
                 auto conn = request.getConnection();
                 //得到ByteBuffer
                 auto& data = request.getMsg()->getData();
-                std::string str;
-                data >> str;
+                //使用toString会保留request中的消息内容
                 printf("Ping Handle------Receive from %d Connection, Message ID is %d, ",
                        conn->getConnID(), request.getMsgID());
-                std::cout <<  "Message is " << str << std::endl;
-                byteBuf.writeUint32(str.size()).writeUint32(conn->getConnID());
-                byteBuf << str;
-                boost::asio::write(conn->getSocket(), byteBuf.buf(), boost::asio::transfer_all());
-                //conn->sendMsg(conn->getConnID(), str);
+                std::cout <<  "Message is " << data.toString() << std::endl;
+                //用自己声明ByteBuffer回送消息
+                byteBuf.writeInt32(5).writeInt32(999) << "Hello";
+                conn->sendMsg(byteBuf);
             }
         }
         void preHandle(zinx_asio::Request&) {}
@@ -50,24 +46,17 @@ class PingRouter: virtual public zinx_asio::Router {
 //PingRouter 使用ping 测试路由
 class HelloRouter: virtual public zinx_asio::Router {
     public:
-        HelloRouter() {
-            std::cout << "+++++++++++++++++HelloRouter()++++++++++++++" << std::endl;
-        }
+        HelloRouter() {}
         virtual ~HelloRouter() {}
         //Handle ping
         void handle(zinx_asio::Request& request) {
-            //msgID为1才处理
-            if (request.getMsgID() == 1) {
-                auto conn = request.getConnection();
-                //得到ByteBuffer
-                auto& data = request.getMsg()->getData();
-                std::string str = data.toString();
-                printf("Hello Handle------Receive from %d Connection, Message ID is %d, ",
-                       conn->getConnID(), request.getMsgID());
-                std::cout <<  "Message is " << str << std::endl;
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                conn->sendMsg(conn->getConnID(), str);
-            }
+            auto conn = request.getConnection();
+            //得到ByteBuffer
+            auto& data = request.getMsg()->getData();
+            printf("Hello Handle------Receive from %d Connection, Message ID is %d, ",
+                   conn->getConnID(), request.getMsgID());
+            std::cout <<  "Message is " << data << std::endl;
+            //不回送消息
         }
         void preHandle(zinx_asio::Request& request) {}
         void postHandle(zinx_asio::Request& request) {}

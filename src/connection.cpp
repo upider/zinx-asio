@@ -4,9 +4,9 @@
 #include <chrono>
 
 #include <boost/asio/read.hpp>
-#include <boost/asio/write.hpp>
 
 #include "utils.hpp"
+#include "byte_buffer.hpp"
 #include "server.hpp"
 #include "data_pack.hpp"
 #include "request.hpp"
@@ -26,41 +26,30 @@ void Connection::startRead(boost::asio::yield_context yield) {
 
     //创建拆解包对象
     //读取客户端户message head的数据流的前八个字节
-    size_t len = DataPack().getHeadLen();
+    uint32_t len = DataPack().getHeadLen();
     auto msg = std::make_shared<Message>();
 
-    char dataBuf[len];
     try {
-        std::cout << "Server Read Data Head " << len << " bytes" << "\n";
-        //boost::asio::async_read(socket_, msg->getData().buf(), boost::asio::transfer_exactly(len), yield);
-        boost::asio::async_read(socket_, boost::asio::buffer(dataBuf, len),
+        boost::asio::async_read(socket_, msg->getData().buf(),
                                 boost::asio::transfer_exactly(len), yield);
     } catch(std::exception& ec) {
         std::cout << "[Writer exits error] " << ec.what() << std::endl;
         //读取错误或终止时
-        //终止timer
-        timer_.cancel();
         stop();
         return;
     }
 
     //拆包:读取messageID和Len放进headData
     uint32_t id;
-    len = dataBuf[0];
-    id = dataBuf[4];
-    //TODO:
-    //msg->getData() >> len >> id;
+    msg->getData() >> len >> id;
     msg->setMsgLen(len);
     msg->setMsgID(id);
     try {
-        std::cout << "Server Read Data Body: Body length is " << len << "\n";
         boost::asio::async_read(socket_, msg->getData().buf(),
                                 boost::asio::transfer_exactly(len), yield);
     } catch(std::exception& ec) {
         std::cout << "[Writer exits error] " << ec.what() << std::endl;
         //读取错误或终止时
-        //终止timer
-        timer_.cancel();
         stop();
         return;
     }
@@ -73,46 +62,15 @@ void Connection::startRead(boost::asio::yield_context yield) {
             //组装Request
             Request req(msg, self);
             routers_ptr->doMsgHandler(req);
-            std::cout << "DoMsgHandler Thread ID " << std::this_thread::get_id() << std::endl;
             printf("[Connection %d ReadHandler Stop]\n", connID_);
-            //head和data都发送
-            //调用一次startWrite
-            boost::asio::spawn(strand_, [this, self](boost::asio::yield_context yield) {
-                startWrite(yield);
-            });
         });
     } else {
         //或直接执行
         //组装Request
         Request req(msg, self);
         routers_ptr->doMsgHandler(req);
-        std::cout << "DoMsgHandler Thread ID " << std::this_thread::get_id() << std::endl;
         printf("[Connection %d ReadHandler Stop]\n", connID_);
-        boost::asio::spawn(strand_, [this, self](boost::asio::yield_context yield) {
-            startWrite(yield);
-        });
     }
-}
-
-//startWrite 写业务
-void Connection::startWrite(boost::asio::yield_context yield) {
-    printf("[Connection %d WriterHandler Start]\n", connID_);
-    auto self(shared_from_this());
-
-    try {
-        boost::asio::async_write(socket_, writerBuffer_, boost::asio::transfer_all(), yield);
-    } catch(std::exception& ec) {
-        std::cout << "[Writer exits error] " << ec.what() << std::endl;
-        //读取错误或终止时
-        //终止timer
-        timer_.cancel();
-        stop();
-        return;
-    }
-
-    std::cout << "Writer Thread ID " << std::this_thread::get_id() << std::endl;
-
-    printf("[Connection %d WriterHandler Stop]\n", connID_);
     boost::asio::spawn(strand_, [this, self](boost::asio::yield_context yield) {
         startRead(yield);
     });
@@ -133,16 +91,13 @@ void Connection::start() {
         //设置timer超时时间
         timer_.expires_after(std::chrono::seconds(maxConnTime_));
         timer_.async_wait(
-        [this](const boost::system::error_code & ec) {
+        [this, self](const boost::system::error_code & ec) {
             if (ec) {
-                std::cout << "Connection " << connID_ << " Timer Error: " << ec.message() << std::endl;
-                if(!isClosed_.load(std::memory_order_relaxed)) {
-                    stop();
-                    return;
-                }
+                //如果有错误，应该是timer被cancel
+                std::cout << "Connection " << connID_ << " Timer Error: " << ec.message() << '\n';
             } else {
-                std::cout << "Connection " << connID_ << " Timeout" << std::endl;
-                //取消Connection的读写操作,关闭Connection
+                std::cout << "Connection " << connID_ << " Timeout" << '\n';
+                timeOut_.store(true, std::memory_order_relaxed);
                 stop();
             }
         });
@@ -151,14 +106,17 @@ void Connection::start() {
 
 //stop 停止链接
 void Connection::stop() {
+    if(isClosed_.load(std::memory_order_relaxed)) {
+        return;
+    }
     printf("==================No.%d Connection Stop==================\n", connID_);
     //销毁连接之前调用OnConnStop
     auto self(shared_from_this());
     belongServer_->callOnConnStop(self);
-    if(isClosed_.load(std::memory_order_relaxed)) {
-        return;
-    }
     isClosed_.store(true, std::memory_order_relaxed);
+    if (!timeOut_.load(std::memory_order_relaxed)) {
+        timer_.cancel();
+    }
     socket_.cancel();
     socket_.close();
     auto p = connMgr_wptr.lock();
@@ -169,67 +127,102 @@ void Connection::stop() {
     }
 }
 
-//TODO:startWrite放到sendMsg
 //SendMsg 发送数据
 void Connection::sendMsg(uint32_t msgID, const char* data, size_t size) {
-    std::ostream os(&writerBuffer_);
-    //len
-    os.write((char*)(&size), sizeof(size));
-    //ID
-    os.write((char*)(&msgID), sizeof(msgID));
-    //数据
-    os.write(data, size);
+    auto self(shared_from_this());
+    auto buffer = std::make_shared<ByteBuffer<>>();
+    buffer->writeUint32(size).writeUint32(msgID);
+    buffer->write(data, size);
+    boost::asio::spawn(strand_,
+    [this, self, buffer](boost::asio::yield_context yield) {
+        try {
+            boost::asio::async_write(socket_, buffer->buf(),
+                                     boost::asio::transfer_all(), yield);
+        } catch(std::exception& ec) {
+            std::cout << "[sendMsg exits error] " << ec.what() << std::endl;
+            //读取错误或终止时
+            stop();
+            return;
+        }
+    });
 }
 
 //SendMsg 发送数据
 void Connection::sendMsg(uint32_t msgID, const std::vector<char>& data) {
-    std::ostream os(&writerBuffer_);
-    uint32_t size = data.size();
-    //len
-    os.write((char*)&size, sizeof(size));
-    //ID
-    os.write((char*)&msgID, sizeof(msgID));
-    //数据
-    os.write(data.data(), size);
+    auto self(shared_from_this());
+    auto buffer = std::make_shared<ByteBuffer<>>();
+    buffer->writeUint32(data.size()).writeUint32(msgID).write(data.data(), data.size());
+    boost::asio::spawn(strand_,
+    [this, self, buffer](boost::asio::yield_context yield) {
+        try {
+            boost::asio::async_write(socket_, buffer->buf(),
+                                     boost::asio::transfer_all(), yield);
+        } catch(std::exception& ec) {
+            std::cout << "[sendMsg exits error] " << ec.what() << std::endl;
+            //读取错误或终止时
+            stop();
+            return;
+        }
+    });
 }
 
 //SendMsg 发送数据
 void Connection::sendMsg(uint32_t msgID, const std::string& data) {
-    std::ostream os(&writerBuffer_);
-    uint32_t size = data.size();
-    //len
-    os << size;
-    //os.write((char*)&size, sizeof(size));
-    //ID
-    os << msgID;
-    //os.write((char*)&msgID, sizeof(msgID));
-    //数据
-    os << data;
+    auto self(shared_from_this());
+    auto buffer = std::make_shared<ByteBuffer<>>();
+    buffer->writeUint32(data.size()).writeUint32(msgID).write(data.data(), data.size());
+    boost::asio::spawn(strand_,
+    [this, self, buffer](boost::asio::yield_context yield) {
+        try {
+            boost::asio::async_write(socket_, buffer->buf(),
+                                     boost::asio::transfer_all(), yield);
+        } catch(std::exception& ec) {
+            std::cout << "[sendMsg exits error] " << ec.what() << std::endl;
+            //读取错误或终止时
+            stop();
+            return;
+        }
+    });
 }
 
 //SendMsg 发送数据
 void Connection::sendMsg(uint32_t msgID, boost::asio::streambuf& data) {
-    std::ostream os(&writerBuffer_);
-    //dataLen写进buf
-    uint32_t len = data.size();
-    os.write((char*)(&len), 4);
-    //dataID写进buf
-    os.write((char*)(&msgID), 4);
-    //data写进buf
-    os << &data;
+    auto self(shared_from_this());
+    auto buffer = std::make_shared<ByteBuffer<>>();
+    buffer->writeUint32(data.size()).writeUint32(msgID);
+    buffer->operator<<(data);
+    boost::asio::spawn(strand_,
+    [this, self, buffer](boost::asio::yield_context yield) {
+        try {
+            boost::asio::async_write(socket_, buffer->buf(),
+                                     boost::asio::transfer_all(), yield);
+        } catch(std::exception& ec) {
+            std::cout << "[sendMsg exits error] " << ec.what() << std::endl;
+            //读取错误或终止时
+            stop();
+            return;
+        }
+    });
 }
 
 //SendMsg 发送数据
 void Connection::sendMsg(Message& msg) {
-    std::ostream os(&writerBuffer_);
-    //dataLen写进buf
-    uint32_t len = msg.getMsgLen();
-    os.write((char*)(&len), 4);
-    //dataID写进buf
-    uint32_t id = msg.getMsgID();
-    os.write((char*)(&id), 4);
-    //data写进buf
-    os << msg.getData();
+    auto self(shared_from_this());
+    auto buffer = std::make_shared<ByteBuffer<>>();
+    buffer->writeUint32(msg.getMsgLen()).writeUint32(msg.getMsgID());
+    buffer->operator<<(msg.getData());
+    boost::asio::spawn(strand_,
+    [this, self, buffer](boost::asio::yield_context yield) {
+        try {
+            boost::asio::async_write(socket_, buffer->buf(),
+                                     boost::asio::transfer_all(), yield);
+        } catch(std::exception& ec) {
+            std::cout << "[sendMsg exits error] " << ec.what() << std::endl;
+            //读取错误或终止时
+            stop();
+            return;
+        }
+    });
 }
 
 //getSocket 获取当前连接绑定的socket

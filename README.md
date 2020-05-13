@@ -7,7 +7,7 @@
 
 ## 基本情况
 + 基于Boost.Asio实现zinx框架
-+ 依赖:Boost.Asio和nlohmann/json
++ 依赖:Boost.Asio和nlohmann/json(git submodule)
 + 总体架构属于Multi-Reactor,每个io_context当做Reactor
 + 第一版：io_context per CPU
 + 第二版：
@@ -54,57 +54,6 @@ Message包装成Request---->Connection对应的的消息管理模块调用Router
 }
 ```
 
-## 代码例子
-
-1. 服务端代码:
-请看demo,很详细,注意
-`[Writer exits error] Bad file descriptor`和`Connection 0 Timer Error: Operation canceled`
-是打印的log信息不是错误 
-2. 客户端代码如下:
-Message形式为uint32_t(len)|uint32_t(ID)|char(内容)
-len表示内容部分长度
-
-```c
-    size_t size = zinx_asio::DataPack().getHeadLen();
-	//建立socket
-	boost::asio::io_context ioc;
-	boost::asio::ip::tcp::socket socket(ioc);
-	//建立地址
-    boost::asio::ip::tcp::endpoint endpoint(
-        ip::address::from_string("127.0.0.1"), 9999);
-
-    try {
-		//建立连接
-        socket.connect(endpoint);
-    } catch(boost::system::system_error& e) {
-        std::cout << e.what() << std::endl;
-    }
-	
-	//构造Message
-	//Message的setData方法可以使用vector和char*设置发送内容
-	//以后会提供更丰富的方法
-	zinx_asio::Message msgB(1, "hello this is client message", 29);
-	//消息打包
-	zinx_asio::DataPack().pack(buf, msgB);
-	//发送消息
-	boost::asio::write(socket, buf.data());
-	//消耗掉发送的消息
-	buf.consume(buf.size());
-
-	//读消息
-    boost::asio::read(socket, buf, transfer_exactly(size));
-	//消息拆包:读取消息头部
-    auto msg2 = zinx_asio::DataPack().unpack(buf);
-	//消耗掉使用的消息
-    buf.consume(size);
-	//读取消息体
-    boost::asio::read(socket, buf, transfer_exactly(msg2.getMsgLen()));
-	//打印
-    std::cout <<  "Server send back " << msg2.getMsgLen() << " bytes"
-              << "message is " << &buf << std::endl;
-    buf.consume(buf.size());
-```
-
 ## 协程使用
 
 + 第一版:在启动每个Connection的read和write时，将其包装成协程且序列化读写操作
@@ -112,10 +61,103 @@ len表示内容部分长度
 + 第二版:将第一版的read和write的一个协程拆成两个,一个连接不会阻塞其他连接,将计算任务提交到TaskWorkerPool(线程池),同时提交异步写任务到IO线程
 
 ## 重要组件
-1. Message: 包含消息ID,len和内容
-2. ByteBuffer: 由boost::asio::basic_streambuf包装,具有流式API:
+1. ByteBuffer: 由boost::asio::basic_streambuf包装,具有流式API:
    所有流式API(>>和<<)以及readXXX和writeXXX,都会改变ByteBuffer内容
-3. Request: 包装了Connection和Message,在添加的Router之间传递,如果在某一个Router里数据被取出,后面的Router将不会拿到数据
+   ```c
+	//测试从vector输入和输出
+    std::cout << "=============测试和vector交互=============" << '\n';
+    std::vector<char> v;
+    buffer1 << "buffer1";
+    std::cout << "+++++++++向vector输出+++++++++" << '\n';
+	//buffer1内容被转移到v
+    buffer1 >> v;
+    std::cout << "vector = ";
+    std::copy(v.begin(), v.end(), std::ostream_iterator<char>(std::cout, " "));
+    std::cout << '\n';
+    std::cout << "buffer1 = " << buffer1 << '\n';
 
-## TODO
-去掉每个连接所带有的readBuffer和writeBuffer
+	//copyToXXX不会改变ByteBuffer内容
+	std::cout << "+++++++++copyToVector+++++++++" << std::endl;
+    buffer1 << "copyToVector";
+    std::vector<char> v3;
+    buffer1.copyToVector(v3);
+    std::cout << "vector = ";
+    std::copy(v3.begin(), v3.end(), std::ostream_iterator<char>(std::cout, " "));
+    std::cout << '\n';
+    std::cout << "buffer1 = " << buffer1 << '\n';
+   ```
+   你还可以使用C++的扩展分配器
+   ```c
+   #include <ext/pool_allocator.h>
+   //拷贝构造
+   zinx_asio::ByteBuffer<__gnu_cxx::__pool_alloc<char>> buffer2(buffer1);
+   ```
+
+2. Message: 包含消息ID,len和内容
+   客户端与服务器的交互(TCP)是以消息的形式进行的,每条消息必须包含len,ID,content,
+   格式:uint32_t|uint32_t|bytes,你可以将len,ID,content都放进ByteBuffer,然后发送
+   ByteBuffer,也可以直接发送ID和content
+   ```c
+	//得到对应连接
+    auto conn = request.getConnection();
+    //得到ByteBuffer
+    auto& data = request.getMsg()->getData();
+    //使用toString会保留request中的消息内容
+    printf("Ping Handle------Receive from %d Connection, Message ID is %d, ",
+           conn->getConnID(), request.getMsgID());
+    std::cout <<  "Message is " << data.toString() << std::endl;
+    //用自己声明ByteBuffer回送消息
+    byteBuf.writeInt32(5).writeInt32(999) << "Hello";
+    conn->sendMsg(byteBuf);
+   ```
+   或者
+   ```c
+   //sendMsg有多个重载版本
+   std::string str;
+   conn->sendMsg(msgID,str);
+   ```
+3. Request: 包装了Connection和Message(shared_ptr的形式),在添加的Router之间传递,如
+   果在某一个Router里数据被取出,后面的Router将不会拿到数据
+
+4. Router：包装了对消息的处理方法,要给每个Router唯一的ID,并在使用前注册,可以重载
+   三个方法,需要继承Router类(最好虚继承):
+   ```c
+   void preHandle(zinx_asio::Request&) {}
+   void handle(zinx_asio::Request& request) {}
+   void postHandle(zinx_asio::Request&) {}
+   ```
+   ```c
+   class PingRouter: virtual public zinx_asio::Router {
+    public:
+        PingRouter() {}
+        virtual ~PingRouter() {}
+        //Handle ping
+        void handle(zinx_asio::Request& request) {
+            //msgID为0才处理
+            if (request.getMsgID() == 0) {
+                //得到对应连接
+                auto conn = request.getConnection();
+                //得到ByteBuffer
+                auto& data = request.getMsg()->getData();
+                //使用toString会保留request中的消息内容
+                printf("Ping Handle------Receive from %d Connection, Message ID is %d, ",
+                       conn->getConnID(), request.getMsgID());
+                std::cout <<  "Message is " << data.toString() << std::endl;
+                //用自己声明ByteBuffer回送消息
+                byteBuf.writeInt32(5).writeInt32(999) << "Hello";
+                conn->sendMsg(byteBuf);
+            }
+        }
+        void preHandle(zinx_asio::Request&) {}
+        void postHandle(zinx_asio::Request&) {}
+
+    private:
+        zinx_asio::ByteBuffer<> byteBuf;
+   };
+   ```
+
+5. Server:服务器主体
+
+## 注意
+`[Writer exits error] Bad file descriptor`和
+`Connection 0 Timer Error: Operation canceled`是打印的log信息不是错误

@@ -101,10 +101,10 @@ class ByteBuffer {
 
         //流式读出算数类型
         template<typename T, typename = typename std::enable_if<std::is_arithmetic<T>::value, bool>::type>
-        ByteBuffer & operator>>(T & val);
+        ByteBuffer & operator>>(T&val);
         //流式读入算数类型
         template<typename T, typename = typename std::enable_if<std::is_arithmetic<T>::value, bool>::type>
-        ByteBuffer & operator<<(T & val);
+        ByteBuffer & operator<<(T val);
 
         //从vector输入和输出
         ByteBuffer& operator<<(const std::vector<char>&);
@@ -128,6 +128,14 @@ class ByteBuffer {
         //移动读写指针
         template<typename T>
         ByteBuffer& operator>>(ByteBuffer<T>&);
+        ///operator<<
+        //移动读写指针
+        template<typename T>
+        ByteBuffer& operator<<(boost::asio::basic_streambuf<T>&);
+        ///operator>>
+        //移动读写指针
+        template<typename T>
+        ByteBuffer& operator>>(boost::asio::basic_streambuf<T>&);
 
         ///返回允许的最大序列
         std::size_t maxSize() const;
@@ -370,7 +378,7 @@ ByteBuffer<Allocator>& ByteBuffer<Allocator>::operator>>(T & val) {
 //流式读入算数类型
 template <typename Allocator>
 template<typename T, typename >
-ByteBuffer<Allocator>& ByteBuffer<Allocator>::operator<<(T & val) {
+ByteBuffer<Allocator>& ByteBuffer<Allocator>::operator<<(T val) {
     return write(&val, sizeof(val));
 }
 
@@ -529,6 +537,26 @@ template<typename T>
 ByteBuffer<Allocator>& ByteBuffer<Allocator>::operator>>(ByteBuffer<T>& other) {
     std::istream is(&data_);
     is >> &other.buf();
+    return *this;
+}
+
+///operator<<
+//移动读写指针
+template <typename Allocator>
+template<typename T>
+ByteBuffer<Allocator>& ByteBuffer<Allocator>::operator<<(boost::asio::basic_streambuf<T>& buf) {
+    std::ostream os(&data_);
+    os << &buf;
+    return *this;
+}
+
+///operator>>
+//移动读写指针
+template <typename Allocator>
+template<typename T>
+ByteBuffer<Allocator>& ByteBuffer<Allocator>::operator>>(boost::asio::basic_streambuf<T>& buf) {
+    std::istream is(&data_);
+    is >> &buf;
     return *this;
 }
 

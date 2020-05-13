@@ -106,7 +106,7 @@ void client1(boost::asio::io_context& ioc) {
             std::cout << "Read Data Body" << std::endl;
             boost::asio::read(socket, buffer.buf(), boost::asio::transfer_exactly(size));
             std::cout <<  "Server send back " << size << " bytes"
-                      << " ConnID = " << id
+                      << " MsgID = " << id
                       << " message is " << buffer << '\n';
 
             i++;

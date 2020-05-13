@@ -55,7 +55,7 @@ void Server::doAccept(size_t acceptorIndex) {
         }
         //设置最大连接数
         if (connMgr_ptr->size() == GlobalObject::getInstance().MaxConn) {
-            printf("Excess MaxConn\n");
+            printf("---------------Excess MaxConn---------------\n");
             //TODO 给客户端一个错误响应
             newConn->getSocket().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
             newConn->getSocket().cancel();
@@ -65,8 +65,8 @@ void Server::doAccept(size_t acceptorIndex) {
             newConn->start();
             //给套接字设置套接字选项
             connMgr_ptr->setAllSocketOptions(newConn);
-            doAccept(acceptorIndex);
         }
+        doAccept(acceptorIndex);
     });
 }
 
