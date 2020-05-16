@@ -1,12 +1,12 @@
 {
 	"Name":"ZinxServerApp",
 	"ZinxVersion":"V0.9",
-	"MaxConn":3,
+	"MaxConnNum":3,
 	"MaxPackageSize":512,
 	"IOWorkerPoolSize":1,
 	"TaskWorkerPoolSize":2,
 	"TaskWorkerQueueNum":1,
-	"MaxConnTime":5,
+	"MaxConnIdleTime":5,
 
 	"EndPoints":[
 		{

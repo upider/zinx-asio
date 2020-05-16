@@ -15,10 +15,32 @@
 namespace zinx_asio {//namespace zinx_asio
 Connection::Connection(Server* s, boost::asio::io_context& ioc, uint32_t id, size_t time,
                        std::shared_ptr<ConnManager> cm, std::shared_ptr<MessageManager> mm)
-    : belongServer_(s), socket_(ioc), connID_(id), maxConnTime_(time), isClosed_(false),
+    : belongServer_(s), socket_(ioc), connID_(id), maxConnIdleTime_(time), isClosed_(false),
       connMgr_wptr(cm), routers_ptr(mm), strand_(ioc), timer_(ioc) {}
 
 Connection::~Connection () {}
+
+//更新timer截止时间
+void Connection::setTimerCallback() {
+    auto self(shared_from_this());
+    //设置timer超时时间
+    timer_.async_wait(
+    [this, self](const boost::system::error_code & ec) {
+        if (ec) {
+            //如果有错误，应该是timer被cancel
+            std::cout << "Connection " << connID_ << " Timer Error: " << ec.message() << '\n';
+        }
+        //当前已经超时
+        if(timer_.expiry() <= boost::asio::steady_timer::clock_type::now()) {
+            std::cout << "Connection " << connID_ << " Timeout" << '\n';
+            timeOut_.store(true, std::memory_order_relaxed);
+            stop();
+        } else {
+            //当前仍未超时
+            setTimerCallback();
+        }
+    });
+}
 
 //startRead 读业务
 void Connection::startRead(boost::asio::yield_context yield) {
@@ -61,7 +83,6 @@ void Connection::startRead(boost::asio::yield_context yield) {
     }
 
     auto self(shared_from_this());
-
     //如果业务线程池存在，将任务放进线程池
     if (belongServer_->getTaskWorkerPool()) {
         boost::asio::post(belongServer_->getTaskWorkerPool()->getCtx(), [self, this, msg]() {
@@ -77,6 +98,10 @@ void Connection::startRead(boost::asio::yield_context yield) {
         routers_ptr->doMsgHandler(req);
         printf("[Connection %d ReadHandler Stop]\n", connID_);
     }
+
+    if (maxConnIdleTime_) {
+        timer_.expires_after(std::chrono::seconds(maxConnIdleTime_));
+    }
     boost::asio::spawn(strand_, [this, self](boost::asio::yield_context yield) {
         startRead(yield);
     });
@@ -89,25 +114,15 @@ void Connection::start() {
     //调用OnConnStart
     belongServer_->callOnConnStart(self);
 
+    if (maxConnIdleTime_) {
+        //开始时设置timer存活时间
+        timer_.expires_after(std::chrono::seconds(maxConnIdleTime_));
+        setTimerCallback();
+    }
+
     boost::asio::spawn(strand_, [this, self](boost::asio::yield_context yield) {
         startRead(yield);
     });
-
-    if (maxConnTime_) {
-        //设置timer超时时间
-        timer_.expires_after(std::chrono::seconds(maxConnTime_));
-        timer_.async_wait(
-        [this, self](const boost::system::error_code & ec) {
-            if (ec) {
-                //如果有错误，应该是timer被cancel
-                std::cout << "Connection " << connID_ << " Timer Error: " << ec.message() << '\n';
-            } else {
-                std::cout << "Connection " << connID_ << " Timeout" << '\n';
-                timeOut_.store(true, std::memory_order_relaxed);
-                stop();
-            }
-        });
-    }
 }
 
 //stop 停止链接

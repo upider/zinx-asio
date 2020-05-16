@@ -163,3 +163,8 @@ Message包装成Request---->Connection对应的的消息管理模块调用Router
 ## 注意
 `[Writer exits error] Bad file descriptor`和
 `Connection 0 Timer Error: Operation canceled`是打印的log信息不是错误
+
+## TODO
+1. 准备抽象出多个接口(纯虚类)
+2. 支持UDP,HTTP(HTTP1.1,websocket)
+3. 实现rpc功能(可能借助protobuf)

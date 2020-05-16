@@ -7,8 +7,6 @@
  */
 
 #include <iostream>
-#include <algorithm> // for copy 
-#include <iterator> // for back_inserter
 #include <sstream>
 #include <ext/pool_allocator.h>
 #include <boost/asio.hpp>

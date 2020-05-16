@@ -14,12 +14,12 @@ GlobalObject::GlobalObject() {
     Name = obj["Name"];
 
     ZinxVersion = obj["ZinxVersion"];
-    MaxConn = obj["MaxConn"];
+    MaxConnNum = obj["MaxConnNum"];
     MaxPackageSize = obj["MaxPackageSize"];
     IOWorkerPoolSize = obj["IOWorkerPoolSize"];
     TaskWorkerPoolSize = obj["TaskWorkerPoolSize"];
     TaskWorkerQueueNum = obj["TaskWorkerQueueNum"];
-    MaxConnTime = obj["MaxConnTime"];
+    MaxConnIdleTime = obj["MaxConnIdleTime"];
     for (size_t i = 0; i < obj["EndPoints"].size(); ++i) {
         std::string host = obj["EndPoints"][i]["Host"];
         int port = obj["EndPoints"][i]["TCPPort"];

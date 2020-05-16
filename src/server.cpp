@@ -42,7 +42,7 @@ void Server::doAccept(size_t acceptorIndex) {
 
     //生成新的套接字
     auto newConn = std::make_shared<Connection>(this, ioWorkerPool_->getCtx(),
-                   cid_++, GlobalObject::getInstance().MaxConnTime,
+                   cid_++, GlobalObject::getInstance().MaxConnIdleTime,
                    connMgr_ptr, msgMgr);
 
     //开始等待连接
@@ -54,8 +54,8 @@ void Server::doAccept(size_t acceptorIndex) {
             return;
         }
         //设置最大连接数
-        if (connMgr_ptr->size() == GlobalObject::getInstance().MaxConn) {
-            printf("---------------Excess MaxConn---------------\n");
+        if (connMgr_ptr->size() == GlobalObject::getInstance().MaxConnNum) {
+            printf("---------------Excess MaxConnNum---------------\n");
             //TODO 给客户端一个错误响应
             newConn->getSocket().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
             newConn->getSocket().cancel();
@@ -88,7 +88,7 @@ void Server::listen() {
 void Server::start() {
     printf("[zinx] %s%s Start\n",
            GlobalObject::getInstance().Name.data(), GlobalObject::getInstance().ZinxVersion.data());
-    std::cout << "Max Connection num  = " << GlobalObject::getInstance().MaxConn << std::endl;
+    std::cout << "Max Connection num  = " << GlobalObject::getInstance().MaxConnNum << std::endl;
     std::cout << "IOWorkerPoolSize    = " << ioWorkerPool_->iocNum() << std::endl;
     if (taskWorkerPool_ == nullptr) {
         std::cout << "TaskWorkerPool      = NULL" << std::endl;
