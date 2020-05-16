@@ -2,6 +2,7 @@
 
 #include <boost/asio/socket_base.hpp>
 #include <boost/asio/ip/v6_only.hpp>
+#include <boost/asio/ip/multicast.hpp>
 
 #include "conn_manager.hpp"
 #include "connection.hpp"
@@ -13,25 +14,25 @@ ConnManager::~ConnManager() {}
 //add 添加连接
 void ConnManager::addConn(Conn_ptr conn) {
     connsLock.lock();
-    conns[conn->getConnID()] = conn;
+    conns_[conn->getConnID()] = conn;
     connsLock.unlock();
-    printf("==============%d Connection added to ConnManager, conn num = %lu==============\n", conn->getConnID(), conns.size());
+    printf("==============%d Connection added to ConnManager, conn num = %lu==============\n", conn->getConnID(), conns_.size());
 }
 
 //del 删除链接
 void ConnManager::delConn(Conn_ptr conn) {
     connsLock.lock();
-    conns.erase(conn->getConnID());
+    conns_.erase(conn->getConnID());
     connsLock.unlock();
-    printf("============%d Connection removed from ConnManager, conn num = %lu==============\n", conn->getConnID(), conns.size());
+    printf("============%d Connection removed from ConnManager, conn num = %lu==============\n", conn->getConnID(), conns_.size());
 }
 
 //get 根据ID获取连接
 Conn_ptr ConnManager::getConn(uint32_t id) {
     connsLock.lock_shared();
-    auto it = conns.find(id);
+    auto it = conns_.find(id);
     connsLock.unlock_shared();
-    if (it != conns.end()) {
+    if (it != conns_.end()) {
         return it->second;
     }
     return nullptr;
@@ -40,7 +41,7 @@ Conn_ptr ConnManager::getConn(uint32_t id) {
 //size 获取当前连接总数
 uint32_t ConnManager::size() {
     connsLock.lock_shared();
-    size_t s = conns.size();
+    size_t s = conns_.size();
     connsLock.unlock_shared();
     return s;
 }
@@ -48,10 +49,10 @@ uint32_t ConnManager::size() {
 //clear 清除所有连接
 void ConnManager::clear() {
     connsLock.lock();
-    for (auto it = conns.begin(); it != conns.end(); ++it) {
+    for (auto it = conns_.begin(); it != conns_.end(); ++it) {
         it->second->stop();
     }
-    conns.clear();
+    conns_.clear();
     connsLock.unlock();
 }
 
@@ -123,12 +124,59 @@ void ConnManager::setSendLowWaterMark(Conn_ptr conn, size_t mark) {
     conn->getSocket().set_option(boost::asio::socket_base::send_low_watermark(mark));
 }
 
+//多播属性
+void ConnManager::setMulticastEnableLoopBack(Conn_ptr conn, bool loopback) {
+    conn->getSocket().set_option(boost::asio::ip::multicast::enable_loopback(loopback));
+}
+
+void ConnManager::setMulticastHops(Conn_ptr conn, int hops) {
+    conn->getSocket().set_option(boost::asio::ip::multicast::hops(hops));
+}
+
+void ConnManager::setMulticastJoinGroup(Conn_ptr conn, const std::string& group) {
+    boost::asio::ip::address multicast_address =
+        boost::asio::ip::address::from_string(group);
+    boost::asio::ip::multicast::join_group option(multicast_address);
+    conn->getSocket().set_option(option);
+}
+
+void ConnManager::setMulticastLeaveGroup(Conn_ptr conn, const std::string& group) {
+    boost::asio::ip::address multicast_address =
+        boost::asio::ip::address::from_string(group);
+    boost::asio::ip::multicast::leave_group option(multicast_address);
+    conn->getSocket().set_option(option);
+}
+
+void ConnManager::setMulticastOutboundInterface(Conn_ptr conn, const std::string& group) {
+    boost::asio::ip::address_v4 local_interface =
+        boost::asio::ip::address_v4::from_string(group);
+    boost::asio::ip::multicast::outbound_interface option(local_interface);
+    conn->getSocket().set_option(option);
+}
+
 //添加套接字选项:如果添加的是liger选项那么默认添加为真
 ConnManager& ConnManager::addSocketOption(SocketOption option, int val) {
     options_[option] = val;
     return *this;
 }
 
+//添加多播的套接字选项
+ConnManager& ConnManager::addMulticastSocketOption(SocketOption option, int val) {
+    options_[option] = val;
+    return *this;
+}
+
+//添加多播的套接字选项
+ConnManager& ConnManager::addMulticastSocketOption(SocketOption option, const std::string& val) {
+    strOptions_[option] = val;
+    return *this;
+}
+
+//M_EnableLoopBack,
+//M_Hops,
+//M_JoinGroup,
+//M_LeaveGroup,
+//M_OutboundInterface,
 //NonBlock,
 //SendBufferSize,
 //RecvBufferSize,
@@ -145,8 +193,36 @@ ConnManager& ConnManager::addSocketOption(SocketOption option, int val) {
 
 //给套接字设置套接字选项
 void ConnManager::setAllSocketOptions(Conn_ptr conn) {
+    for(auto& option : strOptions_) {
+        switch (option.first) {
+        case M_JoinGroup: {
+            setMulticastJoinGroup(conn, option.second);
+            break;
+        }
+        case M_LeaveGroup: {
+            setMulticastLeaveGroup(conn, option.second);
+            break;
+        }
+        case M_OutboundInterface: {
+            setMulticastOutboundInterface(conn, option.second);
+            break;
+        }
+        default: {
+            std::cout << "No Such SocketOption" << '\n';
+            break;
+        }
+        }
+    }
     for (auto& option : options_) {
         switch (option.first) {
+        case M_EnableLoopBack: {
+            setMulticastEnableLoopBack(conn, option.second);
+            break;
+        }
+        case M_Hops: {
+            setMulticastHops(conn, option.second);
+            break;
+        }
         case NonBlock: {
             setNonBlock(conn, option.second);
             break;
@@ -201,7 +277,7 @@ void ConnManager::setAllSocketOptions(Conn_ptr conn) {
             break;
         }
         default: {
-            std::cout << "No Such SocketOption" << std::endl;
+            std::cout << "No Such SocketOption" << '\n';
             break;
         }
         }
