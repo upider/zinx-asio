@@ -168,3 +168,7 @@ Message包装成Request---->Connection对应的的消息管理模块调用Router
 1. 准备抽象出多个接口(纯虚类)
 2. 支持UDP,HTTP(HTTP1.1,websocket)
 3. 实现rpc功能(可能借助protobuf)
+4. 日志功能
+5. 支持SSL
+6. 支持MySQL,Redis,postgreSQL,ORM
+7. 命名服务(zookeeper)
