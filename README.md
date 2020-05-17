@@ -160,6 +160,30 @@ Message包装成Request---->Connection对应的的消息管理模块调用Router
 
 6. Server:服务器主体
 
+## 编译demo
+
+1. 进入项目文件夹
+2. mkdir build
+3. cd build
+4. cmake ..
+5. make
+
+编译产生的可执行文件在build目录,目前还不能指定配置文件目录和log目录,
+所以Server执行时只能和demo在同一目录(配置文件在demo/conf)
+
+可以执行以下命令
+```sh
+cd demo
+./../build/server
+```
+
+或者将可执行文件拷贝到demo目录,执行
+```sh
+./server
+```
+
+客户端可以在任意目录执行
+
 ## 注意
 `[Writer exits error] Bad file descriptor`和
 `Connection 0 Timer Error: Operation canceled`是打印的log信息不是错误
@@ -172,3 +196,4 @@ Message包装成Request---->Connection对应的的消息管理模块调用Router
 5. 支持SSL
 6. 支持MySQL,Redis,postgreSQL,ORM
 7. 命名服务(zookeeper)
+8. 指定配置文件和log目录
