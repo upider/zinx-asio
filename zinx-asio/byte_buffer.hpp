@@ -96,8 +96,9 @@ class ByteBuffer {
         }
         //dynamic_buffer_v1 requirements
 
-        //返回缓冲区(char*)头指针和长度,方便直接计算,避免数据拷贝
-        std::pair<char*, std::size_t> getRawBuffer();
+        //返回缓冲区(T*)头指针和长度,方便直接计算,避免数据拷贝
+        template<typename T = char>
+        std::pair<T*, std::size_t> getRawBuffer();
         //以vector返回缓冲区拷贝
         template<typename T>
         std::vector<T> toVector();
@@ -208,9 +209,11 @@ ByteBuffer<Allocator>::~ByteBuffer() {
     }
 }
 
+//返回缓冲区(T*)头指针和长度,方便直接计算,避免数据拷贝
 template<typename Allocator>
-std::pair<char*, std::size_t> ByteBuffer<Allocator>::getRawBuffer() {
-    return {in_, size()};
+template<typename T>
+std::pair<T*, std::size_t> ByteBuffer<Allocator>::getRawBuffer() {
+    return {(T*)in_, size() / sizeof(T)};
 }
 
 template<typename Allocator>

@@ -104,5 +104,18 @@ int main(int argc, char *argv[])
     std::cout << '\n';
     std::cout << "buffer size = " << buffer.size() << std::endl;
 
+    //getRawBuffer
+    std::cout << "========getRawBuffer By Type==========" << '\n';
+    buffer.clear();
+    //放进6个uint16
+    buffer.write(arr);
+    //按照uint32拿出
+    auto pair = buffer.getRawBuffer<uint32_t>();
+    //检查大小是否正确
+    std::cout << "raw buffer size = " << pair.second << std::endl;
+    std::copy(pair.first, pair.first + pair.second,
+              std::ostream_iterator<uint32_t>(std::cout, " "));
+    std::cout << '\n';
+
     return 0;
 }
