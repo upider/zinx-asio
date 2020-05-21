@@ -5,7 +5,7 @@
 #include <inttypes.h>
 #include <boost/asio/streambuf.hpp>
 
-#include "byte_buffer.hpp"
+#include "byte_buffer_stream.hpp"
 #include "message.hpp"
 
 namespace zinx_asio {//namespace zinx_asio
@@ -25,7 +25,7 @@ class DataPack {
         static void pack(boost::asio::streambuf& dataBuf, Message& msg) ;
         //msg打包进streambuf,得到的string是不可读的,但是可以直接用asio::buffer()发送
         template<typename T>
-        static void pack(zinx_asio::ByteBuffer<T>& dataBuf, Message& msg) ;
+        static void pack(zinx_asio::ByteBufferStream<T>& dataBuf, Message& msg) ;
         //拆包:拿到msgLen和msgID
         //char* 中数据不变,返回(len,id)
         static std::pair<uint32_t, uint32_t> unpack(const char* dataBuf);

@@ -1,5 +1,5 @@
 {
-	"Name":"ZinxServerApp",
+	"ServerName":"ZinxServerApp",
 	"ZinxVersion":"V0.9",
 	"MaxConnNum":3,
 	"MaxPackageSize":512,
@@ -11,10 +11,10 @@
 	"EndPoints":[
 		{
 			"Host":"127.0.0.1",
-			"TCPPort":9999
+			"Port":9999
 		},
 		{
 			"Host":"127.0.0.1",
-			"TCPPort":8888
+			"Port":8888
 		}]
 }

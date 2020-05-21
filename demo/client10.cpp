@@ -15,7 +15,7 @@
 
 #include "message.hpp"
 #include "data_pack.hpp"
-#include "byte_buffer.hpp"
+#include "byte_buffer_stream.hpp"
 
 using namespace boost::asio;
 
@@ -33,7 +33,7 @@ void client0(boost::asio::io_context& ioc) {
     }
 
     //消息格式uint32-长度|uint32-ID|内容
-    zinx_asio::ByteBuffer<> buffer;
+    zinx_asio::ByteBufferStream<> buffer;
     std::string s {"This Is Client"};
     try {
         for (uint32_t i = 0; i < 5; ++i) {
@@ -44,15 +44,18 @@ void client0(boost::asio::io_context& ioc) {
             buffer << s;
 
             std::cout << "Send Data Size = " << buffer.size() << std::endl;
-            boost::asio::write(socket, buffer.buf(), boost::asio::transfer_exactly(buffer.size()));
+            boost::asio::write(socket, buffer.data(), boost::asio::transfer_exactly(buffer.size()));
+            buffer.clear();
 
             len = zinx_asio::DataPack().getHeadLen();
             std::cout << "Read Data Head: " << len << " bytes" << std::endl;
-            boost::asio::read(socket, buffer.buf(), boost::asio::transfer_exactly(len));
+            boost::asio::read(socket, buffer.prepare(len), boost::asio::transfer_exactly(len));
+            buffer.commit(len);
             buffer >> len >> id;
 
             std::cout << "Read Data Body: " << len << " bytes" << std::endl;
-            boost::asio::read(socket, buffer.buf(), boost::asio::transfer_exactly(len));
+            boost::asio::read(socket, buffer.prepare(len), boost::asio::transfer_exactly(len));
+            buffer.commit(len);
             std::cout <<  "Server send back " << len << " bytes"
                       << " MsgID = " << id
                       << " message is " << buffer << '\n';

@@ -12,16 +12,20 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/write.hpp>
 
+#include "iconnection.hpp"
+#include "server.hpp"
 #include "message_manager.hpp"
 
 namespace zinx_asio {//namespace zinx_asio
 
 class ConnManager;
-class Server;
 
-class Connection: public std::enable_shared_from_this<Connection> {
+template<> class Server<boost::asio::ip::tcp>;
+template<> class Server<boost::asio::ip::udp>;
+
+class Connection: virtual public IConnection, public std::enable_shared_from_this<Connection> {
     public:
-        Connection(Server*, boost::asio::io_context&, uint32_t, size_t,
+        Connection(Server<boost::asio::ip::tcp>*, boost::asio::io_context&, uint32_t, size_t,
                    std::shared_ptr<ConnManager>, std::shared_ptr<MessageManager>);
         virtual ~Connection ();
         //更新timer截止时间
@@ -49,13 +53,14 @@ class Connection: public std::enable_shared_from_this<Connection> {
         void sendMsg(Message&);
         //SendMsg 发送数据
         template<typename T>
-        void sendMsg(ByteBuffer<T>& buffer) {
+        void sendMsg(ByteBufferStream<T>& buffer) {
             auto self(shared_from_this());
             boost::asio::spawn(strand_,
             [this, self, &buffer](boost::asio::yield_context yield) {
                 try {
-                    boost::asio::async_write(socket_, buffer.buf(),
+                    boost::asio::async_write(socket_, buffer.data(),
                                              boost::asio::transfer_all(), yield);
+                    buffer.clear();
                 } catch(std::exception& ec) {
                     std::cout << "[sendMsg exits error] " << ec.what() << '\n';
                     //读取错误或终止时
@@ -71,7 +76,7 @@ class Connection: public std::enable_shared_from_this<Connection> {
         boost::asio::ip::tcp::endpoint getLocalEndpoint ();
     private:
         //当前connection所属的server
-        Server* belongServer_;
+        Server<boost::asio::ip::tcp>* belongServer_;
         //获取当前连接绑定的socket
         boost::asio::ip::tcp::socket socket_;
         //当前连接ID

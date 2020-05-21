@@ -4,13 +4,14 @@
 #include <vector>
 #include <inttypes.h>
 
-#include "byte_buffer.hpp"
+#include "byte_buffer_stream.hpp"
 
 namespace zinx_asio {//namespace zinx_asio
 
 class Message {
     public:
-        Message(uint32_t, const char*, size_t);
+        Message(uint32_t, const char*, std::size_t);
+        Message(uint32_t, std::size_t);
         Message& operator=(Message&&);
         Message();
         virtual ~Message ();
@@ -22,17 +23,16 @@ class Message {
         void setData(std::vector<char>&);
         //设置消息数组
         void setData(const char*, size_t);
-        //得到ByteBuffer
-        ByteBuffer<>& getData();
+        //得到ByteBufferStream
+        ByteBufferStream<>& getData();
 
     private:
-        //数据
-        ByteBuffer<> data_;
         //消息ID
         uint32_t id_{0};
         //消息长度
         uint32_t len_{0};
-        //消息内容
+        //消息内容 数据
+        ByteBufferStream<> data_;
 };
 
 }//namespace zinx_asio

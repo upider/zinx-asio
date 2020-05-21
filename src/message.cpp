@@ -9,7 +9,10 @@ Message::Message(uint32_t id, const char* buf, size_t size)
     data_.write(buf, size);
 }
 
-Message::Message() {}
+Message::Message(uint32_t id, std::size_t len)
+    : id_(id), len_(len), data_(len) {}
+
+Message::Message(): data_() {}
 
 Message::~Message() {}
 
@@ -39,8 +42,8 @@ void Message::setData(const char* buf, size_t size) {
     data_.write(buf, size);
 }
 
-//得到ByteBuffer
-ByteBuffer<>& Message::getData() {
+//得到ByteBufferStream
+ByteBufferStream<>& Message::getData() {
     return data_;
 }
 

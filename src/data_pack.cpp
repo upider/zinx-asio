@@ -85,9 +85,9 @@ void DataPack::pack(std::vector<char>& dataBuf, Message& msg) {
     }
 }
 
-//msg打包进ByteBuffer,得到的string是不可读的,但是可以直接用asio::buffer()发送
+//msg打包进ByteBufferStream,得到的string是不可读的,但是可以直接用asio::buffer()发送
 template<typename T>
-void DataPack::pack(zinx_asio::ByteBuffer<T>& dataBuf, Message& msg) {
+void DataPack::pack(zinx_asio::ByteBufferStream<T>& dataBuf, Message& msg) {
     dataBuf << msg.getMsgLen() << msg.getMsgID();
     dataBuf << msg.getData().toString();
 }
@@ -101,8 +101,8 @@ std::pair<uint32_t, uint32_t> DataPack::unpack(const char* dataBuf) {
     uint32_t id;
     std::memcpy((char*)(&id), dataBuf + 4, 4);
 
-    if(GlobalObject::getInstance().MaxPackageSize > 0
-            && len > GlobalObject::getInstance().MaxPackageSize) {
+    if(GlobalObject::maxPackageSize() > 0
+            && len > GlobalObject::maxPackageSize()) {
         throw std::logic_error("excess MaxPackageSize");
     }
     return std::make_pair(len, id);
@@ -118,8 +118,8 @@ std::pair<uint32_t, uint32_t> DataPack::unpack(boost::asio::streambuf& dataBuf) 
     //读msgID
     ios.read((char*)(&id), 4);
 
-    if(GlobalObject::getInstance().MaxPackageSize > 0
-            && len > GlobalObject::getInstance().MaxPackageSize) {
+    if(GlobalObject::maxPackageSize() > 0
+            && len > GlobalObject::maxPackageSize()) {
         throw std::logic_error("excess MaxPackageSize");
     }
     return std::make_pair(len, id);
@@ -131,8 +131,8 @@ std::pair<uint32_t, uint32_t> DataPack::unpack(Message& msg) {
     uint32_t len;
     uint32_t id;
     msg.getData() >> len >> id;
-    if(GlobalObject::getInstance().MaxPackageSize > 0
-            && len > GlobalObject::getInstance().MaxPackageSize) {
+    if(GlobalObject::maxPackageSize() > 0
+            && len > GlobalObject::maxPackageSize()) {
         throw std::logic_error("excess MaxPackageSize");
     }
     msg.setMsgLen(len);
@@ -148,8 +148,8 @@ void DataPack::unpack(uint32_t &len, uint32_t &id, const char* dataBuf) {
     //读msgID
     std::memcpy((char*)(&id), dataBuf + 4, 4);
 
-    if(GlobalObject::getInstance().MaxPackageSize > 0
-            && len > GlobalObject::getInstance().MaxPackageSize) {
+    if(GlobalObject::maxPackageSize() > 0
+            && len > GlobalObject::maxPackageSize()) {
         throw std::logic_error("excess MaxPackageSize");
     }
 }
@@ -163,8 +163,8 @@ void DataPack::unpack(uint32_t &len, uint32_t &id, boost::asio::streambuf& dataB
     //读msgID
     ios.read((char*)(&id), 4);
 
-    if(GlobalObject::getInstance().MaxPackageSize > 0
-            && len > GlobalObject::getInstance().MaxPackageSize) {
+    if(GlobalObject::maxPackageSize() > 0
+            && len > GlobalObject::maxPackageSize()) {
         throw std::logic_error("excess MaxPackageSize");
     }
 }
@@ -173,8 +173,8 @@ void DataPack::unpack(uint32_t &len, uint32_t &id, boost::asio::streambuf& dataB
 //Message的data中的前八个字节被取出,并拆包到message的len和id中
 void DataPack::unpack(uint32_t &len, uint32_t &id, Message& msg) {
     msg.getData() >> len >> id;
-    if(GlobalObject::getInstance().MaxPackageSize > 0
-            && len > GlobalObject::getInstance().MaxPackageSize) {
+    if(GlobalObject::maxPackageSize() > 0
+            && len > GlobalObject::maxPackageSize()) {
         throw std::logic_error("excess MaxPackageSize");
     }
     msg.setMsgLen(len);
