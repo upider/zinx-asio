@@ -1,6 +1,7 @@
 #ifndef BYTE_BUFFER_HPP
 #define BYTE_BUFFER_HPP
 
+#include <iostream>
 #include <boost/asio/buffer.hpp>
 
 namespace zinx_asio { //namespace zinx_asio
@@ -84,27 +85,59 @@ class ByteBuffer {
         }
 
         void consume(std::size_t n) {
+            //如果缓存全部被读取
             if(n >= distance(in_, out_)) {
                 in_ = begin_;
                 out_ = begin_;
                 return;
             }
+            //否则
             in_ += n;
         }
         //dynamic_buffer_v1 requirements
 
+        //返回缓冲区(char*)头指针和长度,方便直接计算,避免数据拷贝
         std::pair<char*, std::size_t> getRawBuffer();
-        std::vector<char> toVector();
-        std::string tosString();
+        //以vector返回缓冲区拷贝
+        template<typename T>
+        std::vector<T> toVector();
+        //以string返回缓冲区拷贝
+        std::string toString();
+        //重置指针
         void clear()noexcept;
-        void reserve(std::size_t n);
+        //可写区域大小
+        std::size_t writeableSize()const noexcept;
 
         /* TODO:  <20-05-20, yourname> */
-        ByteBuffer& write(void* val, std::size_t size);
-        ByteBuffer& read(char* val, std::size_t size);
+        //写入读出数字类型
+        template<typename T, typename = typename std::enable_if<std::is_arithmetic<T>::value, bool>::type>
+        ByteBuffer & write(T val);
+        template<typename T, typename = typename std::enable_if<std::is_arithmetic<T>::value, bool>::type>
+        ByteBuffer & read(T& val);
+        //写入读出string
+        ByteBuffer & write(const std::string& val);
+        ByteBuffer & read(std::string& val);
+        //写入读出vector
+        template<typename T>
+        ByteBuffer & write(const std::vector<T>& val);
+        template<typename T>
+        ByteBuffer & read(std::vector<T>& val);
+        //写入读出array
+        template<typename T, std::size_t N>
+        ByteBuffer & write(const std::array<T, N>& val);
+        template<typename T, std::size_t N>
+        ByteBuffer & read(std::array<T, N>& val);
+
+        //基本写入和读出方法
+        ByteBuffer & write(const void* val, std::size_t size);
+        ByteBuffer & read(void* val, std::size_t size);
 
     private:
+        //预留空间
+        void reserve(std::size_t n);
+        //拷贝
         void copyFrom(ByteBuffer const& other);
+        //计算指针距离
         static std::size_t distance(char const* first, char const* last)noexcept;
 
     private:
@@ -181,12 +214,13 @@ std::pair<char*, std::size_t> ByteBuffer<Allocator>::getRawBuffer() {
 }
 
 template<typename Allocator>
-std::vector<char> ByteBuffer<Allocator>::toVector() {
-    return std::vector<char>(in_, out_);
+template<typename T>
+std::vector<T> ByteBuffer<Allocator>::toVector() {
+    return std::vector<T>((T*)in_, (T*)out_);
 }
 
 template<typename Allocator>
-std::string ByteBuffer<Allocator>::tosString() {
+std::string ByteBuffer<Allocator>::toString() {
     return std::string(in_, out_);
 }
 
@@ -202,8 +236,14 @@ void ByteBuffer<Allocator>::clear() noexcept {
     last_ = begin_;
 }
 
+//可写区域大小
 template<class Allocator>
-ByteBuffer<Allocator>& ByteBuffer<Allocator>::write(void* val, std::size_t size) {
+std::size_t ByteBuffer<Allocator>::writeableSize() const noexcept {
+    return distance(out_, end_);
+}
+
+template<class Allocator>
+ByteBuffer<Allocator>& ByteBuffer<Allocator>::write(const void* val, std::size_t size) {
     reserve(size);
     std::memcpy(out_, (char*)val, size);
     commit(size);
@@ -211,10 +251,74 @@ ByteBuffer<Allocator>& ByteBuffer<Allocator>::write(void* val, std::size_t size)
 }
 
 template<class Allocator>
-ByteBuffer<Allocator>& ByteBuffer<Allocator>::read(char* val, std::size_t size) {
-    size = size < this->size() ? size : this->size();
-    std::memcpy(val, in_, size);
+ByteBuffer<Allocator>& ByteBuffer<Allocator>::read(void* val, std::size_t size) {
+    size = size <= this->size() ? size : this->size();
+    std::memcpy((char*)val, in_, size);
     consume(size);
+    return *this;
+}
+
+//写入读出数字类型
+template<typename Allocator>
+template<typename T, typename>
+ByteBuffer<Allocator>& ByteBuffer<Allocator>::write(T val) {
+    return write(&val, sizeof(T));
+}
+
+template<typename Allocator>
+template<typename T, typename>
+ByteBuffer<Allocator> & ByteBuffer<Allocator>::read(T& val) {
+    return read(&val, sizeof(T));
+}
+
+//写入读出string
+template<typename Allocator>
+ByteBuffer<Allocator> & ByteBuffer<Allocator>::write(const std::string& val) {
+    return write(val.data(), val.size());
+}
+
+template<typename Allocator>
+ByteBuffer<Allocator> & ByteBuffer<Allocator>::read(std::string& val) {
+    val.append(in_, size());
+    clear();
+    return *this;
+}
+
+//写入读出vector
+template<typename Allocator>
+template<typename T>
+ByteBuffer<Allocator>& ByteBuffer<Allocator>::write(const std::vector<T>& val) {
+    return write((char*)val.data(), val.size() * sizeof(T));
+}
+
+template<typename Allocator>
+template<typename T>
+ByteBuffer<Allocator> & ByteBuffer<Allocator>::read(std::vector<T>& val) {
+    T* p = (T*)in_;
+    std::size_t size = this->size() / sizeof(T);
+    for (size_t i = 0; i < size; ++i) {
+        val.push_back(p[i]);
+    }
+    consume(size * sizeof(T));
+    return *this;
+}
+
+//写入读出array
+template<typename Allocator>
+template<typename T, std::size_t N>
+ByteBuffer<Allocator> & ByteBuffer<Allocator>::write(const std::array<T, N>& val) {
+    return write((char*)val.data(), N * sizeof(T));
+}
+
+template<typename Allocator>
+template<typename T, std::size_t N>
+ByteBuffer<Allocator> & ByteBuffer<Allocator>::read(std::array<T, N>& val) {
+    std::size_t size = N * sizeof(T) <= this->size() ? N * sizeof(T) : this->size();
+    T* p = (T*)in_;
+    for (size_t i = 0; i < size / sizeof(T); ++i) {
+        val[i] = p[i];
+    }
+    consume(size / sizeof(T));
     return *this;
 }
 
@@ -254,6 +358,8 @@ void ByteBuffer<Allocator>::reserve(std::size_t n) {
         max_size_ = n;
     if(n > capacity())
         prepare(n - size());
+    else
+        prepare(n);
 }
 
 }//namespace zinx_asio
