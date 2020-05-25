@@ -4,16 +4,16 @@
 #include <map>
 #include <thread>
 #include <memory>
-#include <vector>
-#include <list>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/executor_work_guard.hpp>
 
-#include "message.hpp"
+#include "imessage.hpp"
 #include "router.hpp"
 
 namespace zinx_asio {//namespace zinx_asio
-class Request;
+
+class IMessage;
+class IConnection;
 
 class MessageManager {
     public:
@@ -21,7 +21,8 @@ class MessageManager {
         MessageManager();
         virtual ~MessageManager();
         //doMsgHandler 调度或执行对应的Router
-        void doMsgHandler(Request& request)const;
+        void doMsgHandler(std::shared_ptr<IConnection> conn,
+                          std::shared_ptr<IMessage> msg) const;
         //addRouter 添加消息执行对应的Router
         void addRouter(uint32_t msgID, std::shared_ptr<Router> router);
     private:

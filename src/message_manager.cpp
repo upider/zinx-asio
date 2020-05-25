@@ -2,7 +2,6 @@
 #include <iostream>
 
 #include <boost/bind.hpp>
-#include "request.hpp"
 #include "message_manager.hpp"
 #include "utils.hpp"
 
@@ -13,20 +12,21 @@ MessageManager::MessageManager() {}
 MessageManager::~MessageManager() {}
 
 //doMsgHandler 调度或执行对应的Router
-void MessageManager::doMsgHandler(Request& request) const {
+void MessageManager::doMsgHandler(std::shared_ptr<IConnection> conn,
+                                  std::shared_ptr<IMessage> msg) const {
     for (auto& r : routerMap_) {
         try {
-            r.second->preHandle(request);
+            r.second->preHandle(conn, msg);
         } catch(std::exception& e) {
             std::cout << "DoMsgHandler Error: " << e.what() << std::endl;
         }
         try {
-            r.second->handle(request);
+            r.second->handle(conn, msg);
         } catch(std::exception& e) {
             std::cout << "DoMsgHandler Error: " << e.what() << std::endl;
         }
         try {
-            r.second->postHandle(request);
+            r.second->postHandle(conn, msg);
         } catch(std::exception& e) {
             std::cout << "DoMsgHandler Error: " << e.what() << std::endl;
         }

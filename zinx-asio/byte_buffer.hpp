@@ -1,6 +1,7 @@
 #ifndef BYTE_BUFFER_HPP
 #define BYTE_BUFFER_HPP
 
+#include <algorithm>
 #include <iostream>
 #include <boost/asio/buffer.hpp>
 
@@ -13,6 +14,18 @@ class ByteBuffer {
         using mutable_buffers_type = boost::asio::mutable_buffer;
         explicit ByteBuffer(std::size_t initSize = 128,
                             std::size_t max_size = std::numeric_limits<std::size_t>::max());
+
+        template<typename T>
+        explicit ByteBuffer(const std::vector<T>& vec,
+                            std::size_t max_size = std::numeric_limits<std::size_t>::max());
+
+        explicit ByteBuffer(const std::string& str,
+                            std::size_t max_size = std::numeric_limits<std::size_t>::max());
+
+        template<typename T, std::size_t N>
+        explicit ByteBuffer(const std::array<T, N>& vec,
+                            std::size_t max_size = std::numeric_limits<std::size_t>::max());
+
         template<typename T>
         explicit ByteBuffer(const ByteBuffer<T>&);
         template<typename T>
@@ -109,25 +122,25 @@ class ByteBuffer {
         //可写区域大小
         std::size_t writeableSize()const noexcept;
 
-        /* TODO:  <20-05-20, yourname> */
         //写入读出数字类型
+        //write方法写入的数字最好有明确的类型,直接写入数字默认为uint32
         template<typename T, typename = typename std::enable_if<std::is_arithmetic<T>::value, bool>::type>
         ByteBuffer & write(T val);
         template<typename T, typename = typename std::enable_if<std::is_arithmetic<T>::value, bool>::type>
         ByteBuffer & read(T& val);
         //写入读出string
-        ByteBuffer & write(const std::string& val);
-        ByteBuffer & read(std::string& val);
+        ByteBuffer& write(const std::string& val);
+        ByteBuffer& read(std::string& val);
         //写入读出vector
         template<typename T>
-        ByteBuffer & write(const std::vector<T>& val);
+        ByteBuffer& write(const std::vector<T>& val);
         template<typename T>
-        ByteBuffer & read(std::vector<T>& val);
+        ByteBuffer& read(std::vector<T>& val);
         //写入读出array
         template<typename T, std::size_t N>
-        ByteBuffer & write(const std::array<T, N>& val);
+        ByteBuffer& write(const std::array<T, N>& val);
         template<typename T, std::size_t N>
-        ByteBuffer & read(std::array<T, N>& val);
+        ByteBuffer& read(std::array<T, N>& val);
 
         //基本写入和读出方法
         ByteBuffer & write(const void* val, std::size_t size);
@@ -137,11 +150,15 @@ class ByteBuffer {
         //预留空间
         void reserve(std::size_t n);
         //拷贝
-        void copyFrom(ByteBuffer const& other);
+        template<typename T>
+        void copyFrom(ByteBuffer<T> const& other);
         //计算指针距离
         static std::size_t distance(char const* first, char const* last)noexcept;
 
     private:
+        template<class OtherAlloc>
+        friend class ByteBuffer;
+
         Allocator allocator_;
         std::size_t max_size_;
         //可读区域in-->out
@@ -153,6 +170,8 @@ class ByteBuffer {
         char* last_;
         char* end_;
 };
+
+//------------------------------------------------------------------------------
 
 template<typename Allocator>
 ByteBuffer<Allocator>::ByteBuffer(std::size_t initSize,
@@ -169,16 +188,71 @@ ByteBuffer<Allocator>::ByteBuffer(std::size_t initSize,
 
 template<typename Allocator>
 template<typename T>
+ByteBuffer<Allocator>::ByteBuffer(const std::vector<T>& vec, std::size_t max_size) {
+    std::size_t n = vec.size() * sizeof(T);
+    begin_ = allocator_.allocate(n * 2);
+    std::copy_n(reinterpret_cast<char*>(vec.data()), n, begin_);
+    in_ = begin_;
+    end_ = begin_ + n * 2;
+    last_ = begin_ + n;
+    out_ = begin_ + n;
+}
+
+template<typename Allocator>
+ByteBuffer<Allocator>::ByteBuffer(const std::string& str,
+                                  std::size_t max_size) {
+    std::size_t n = str.size();
+    begin_ = allocator_.allocate(n * 2);
+    std::copy_n(str.data(), n, begin_);
+    in_ = begin_;
+    out_ = begin_ + n;
+    last_ = begin_ + n;
+    end_ = begin_ + n * 2;
+}
+
+template<typename Allocator>
+template<typename T, std::size_t N>
+ByteBuffer<Allocator>::ByteBuffer(const std::array<T, N>& vec,
+                                  std::size_t max_size) {
+    std::size_t n = N * sizeof(T);
+    begin_ = allocator_.allocate(n * 2);
+    std::copy_n(reinterpret_cast<char*>(vec.data()), n, begin_);
+    in_ = begin_;
+    out_ = begin_ + n;
+    last_ = begin_ + n;
+    end_ = begin_ + n * 2;
+}
+
+template<typename Allocator>
+template<typename T>
 ByteBuffer<Allocator>::ByteBuffer(const ByteBuffer<T>& other)
-    : max_size_(other.max_size_) {
+    : max_size_(other.max_size_), begin_(nullptr),
+      in_(nullptr), out_(nullptr),
+      last_(nullptr), end_(nullptr) {
     copyFrom(other);
 }
 
 template<typename Allocator>
 template<typename T>
 ByteBuffer<Allocator>::ByteBuffer(ByteBuffer<T>&& other)
-    : max_size_(other.max_size_) {
-    copyFrom(other);
+    : max_size_(other.max_size_), begin_(nullptr),
+      in_(nullptr), out_(nullptr),
+      last_(nullptr), end_(nullptr) {
+
+    if(this == &other)
+        return;
+
+    std::swap(begin_, other.begin_);
+    std::swap(last_, other.last_);
+    std::swap(end_, other.end_);
+    std::swap(in_, other.in_);
+    std::swap(out_, other.out_);
+
+    other.begin_ = other.allocator_.allocate(this->capacity());
+    other.in_ = other.begin_;
+    other.out_ = other.begin_;
+    other.last_ = other.begin_;
+    other.end_ = other.begin_ + this->capacity();
 }
 
 template<typename Allocator>
@@ -196,8 +270,19 @@ template<typename T>
 ByteBuffer<Allocator>& ByteBuffer<Allocator>::operator=(ByteBuffer<T>&& other) {
     if(this == &other)
         return *this;
+
+    if (begin_) {
+        allocator_.deallocate(begin_, this->capacity());
+        begin_ = nullptr;
+    }
+
+    in_ = other.in_;
+    out_ = other.out_;
+    last_ = other.last_;
+    begin_ = other.begin_;
+    end_ = other.end_;
     max_size_ = other.max_size_;
-    copyFrom(other);
+
     return *this;
 }
 
@@ -213,13 +298,14 @@ ByteBuffer<Allocator>::~ByteBuffer() {
 template<typename Allocator>
 template<typename T>
 std::pair<T*, std::size_t> ByteBuffer<Allocator>::getRawBuffer() {
-    return {(T*)in_, size() / sizeof(T)};
+    return {reinterpret_cast<T*>(in_), size() / sizeof(T)};
 }
 
 template<typename Allocator>
 template<typename T>
 std::vector<T> ByteBuffer<Allocator>::toVector() {
-    return std::vector<T>((T*)in_, (T*)out_);
+    return std::vector<T>(reinterpret_cast<T*>(in_),
+                          reinterpret_cast<T*>(out_));
 }
 
 template<typename Allocator>
@@ -256,7 +342,7 @@ ByteBuffer<Allocator>& ByteBuffer<Allocator>::write(const void* val, std::size_t
 template<class Allocator>
 ByteBuffer<Allocator>& ByteBuffer<Allocator>::read(void* val, std::size_t size) {
     size = size <= this->size() ? size : this->size();
-    std::memcpy((char*)val, in_, size);
+    std::memcpy(static_cast<char*>(val), in_, size);
     consume(size);
     return *this;
 }
@@ -282,7 +368,7 @@ ByteBuffer<Allocator> & ByteBuffer<Allocator>::write(const std::string& val) {
 
 template<typename Allocator>
 ByteBuffer<Allocator> & ByteBuffer<Allocator>::read(std::string& val) {
-    val.append(in_, size());
+    val.assign(in_, out_);
     clear();
     return *this;
 }
@@ -291,7 +377,7 @@ ByteBuffer<Allocator> & ByteBuffer<Allocator>::read(std::string& val) {
 template<typename Allocator>
 template<typename T>
 ByteBuffer<Allocator>& ByteBuffer<Allocator>::write(const std::vector<T>& val) {
-    return write((char*)val.data(), val.size() * sizeof(T));
+    return write(reinterpret_cast<const char*>(val.data()), val.size() * sizeof(T));
 }
 
 template<typename Allocator>
@@ -299,8 +385,9 @@ template<typename T>
 ByteBuffer<Allocator> & ByteBuffer<Allocator>::read(std::vector<T>& val) {
     T* p = (T*)in_;
     std::size_t size = this->size() / sizeof(T);
+    val.reserve(size);
     for (size_t i = 0; i < size; ++i) {
-        val.push_back(p[i]);
+        val[i] = p[i];
     }
     consume(size * sizeof(T));
     return *this;
@@ -310,14 +397,14 @@ ByteBuffer<Allocator> & ByteBuffer<Allocator>::read(std::vector<T>& val) {
 template<typename Allocator>
 template<typename T, std::size_t N>
 ByteBuffer<Allocator> & ByteBuffer<Allocator>::write(const std::array<T, N>& val) {
-    return write((char*)val.data(), N * sizeof(T));
+    return write(reinterpret_cast<const char*>(val.data()), N * sizeof(T));
 }
 
 template<typename Allocator>
 template<typename T, std::size_t N>
 ByteBuffer<Allocator> & ByteBuffer<Allocator>::read(std::array<T, N>& val) {
     std::size_t size = N * sizeof(T) <= this->size() ? N * sizeof(T) : this->size();
-    T* p = (T*)in_;
+    T* p = static_cast<T*>(in_);
     for (size_t i = 0; i < size / sizeof(T); ++i) {
         val[i] = p[i];
     }
@@ -326,7 +413,8 @@ ByteBuffer<Allocator> & ByteBuffer<Allocator>::read(std::array<T, N>& val) {
 }
 
 template<class Allocator>
-void ByteBuffer<Allocator>::copyFrom(ByteBuffer const& other) {
+template<typename T>
+void ByteBuffer<Allocator>::copyFrom(ByteBuffer<T> const& other) {
     std::size_t const n = other.size();
     //n==0需要清楚数据
     //n>capacity()需要重新申请空间

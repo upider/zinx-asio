@@ -8,8 +8,14 @@
 
 namespace zinx_asio {//namespace zinx_asio
 
+std::size_t DataPack::maxPackageSize_ = 512;
+
 DataPack::DataPack() {}
 DataPack::~DataPack () {}
+
+void DataPack::setMaxPackegeSize(std::size_t size) {
+    maxPackageSize_ = size;
+}
 
 //GetHeadLen 获取头长度方法
 uint32_t DataPack::getHeadLen()  {
@@ -17,8 +23,27 @@ uint32_t DataPack::getHeadLen()  {
 }
 
 //Pack 封包:len,ID,data,message放进dataBuf
+void DataPack::pack(const void* source, void* dest, std::size_t size) {
+    std::memcpy(dest, source, size);
+}
+
+void DataPack::pack(const void* source, std::vector<char>& dest, std::size_t size) {
+    char*p = (char*)source;
+    for (std::size_t i = 0; i < size; ++i) {
+        dest.push_back(p[i]);
+    }
+}
+
+void DataPack::pack(uint32_t len, uint32_t id, const void* source,
+                    void* dest, std::size_t size) {
+    std::size_t n = sizeof(len);
+    std::memcpy((char*)dest, &len, n);
+    std::memcpy((char*)dest + n, &id, n);
+    std::memcpy((char*)dest + 2 * n, source, size);
+}
+
 //使用时注意dataBuf长度必须足够
-void DataPack::pack(char* dataBuf, Message& msg) {
+void DataPack::pack(char* dataBuf, TCPMessage& msg) {
     int startPos = 0;
     //dataLen写进buf
     uint32_t len = msg.getMsgLen();
@@ -29,11 +54,11 @@ void DataPack::pack(char* dataBuf, Message& msg) {
     std::memcpy(dataBuf + startPos, &id, sizeof(id));
     startPos += sizeof(uint32_t);
     //data写进buf
-    msg.getData().copyToRawBuffer(dataBuf + startPos, len);
+    msg.bufferRef().read(dataBuf + startPos, len);
 }
 
 //Pack 封包:len,ID,data
-void DataPack::pack(boost::asio::streambuf& dataBuf, Message& msg) {
+void DataPack::pack(boost::asio::streambuf& dataBuf, TCPMessage& msg) {
     std::ostream os(&dataBuf);
     //dataLen写进buf
     uint32_t len = msg.getMsgLen();
@@ -42,10 +67,10 @@ void DataPack::pack(boost::asio::streambuf& dataBuf, Message& msg) {
     uint32_t id = msg.getMsgID();
     os.write((char*)(&id), sizeof(id));
     //data写进buf
-    os << msg.getData().toString();
+    os << msg.contentToString();
 }
 
-void DataPack::pack(std::string& dataBuf, Message& msg) {
+void DataPack::pack(std::string& dataBuf, TCPMessage& msg) {
     dataBuf.reserve(sizeof(uint32_t) + msg.getMsgLen());
     //dataLen写进buf
     uint32_t len = msg.getMsgLen();
@@ -61,10 +86,10 @@ void DataPack::pack(std::string& dataBuf, Message& msg) {
     dataBuf[5] = (id >> 16) & 255;
     dataBuf[6] = (id >> 8) & 255;
     dataBuf[7] = id & 255;
-    dataBuf += msg.getData().toString();
+    dataBuf += msg.contentToString();
 }
 
-void DataPack::pack(std::vector<char>& dataBuf, Message& msg) {
+void DataPack::pack(std::vector<char>& dataBuf, TCPMessage& msg) {
     dataBuf.reserve(sizeof(uint32_t) + msg.getMsgLen());
     //dataLen写进buf
     uint32_t len = msg.getMsgLen();
@@ -80,16 +105,9 @@ void DataPack::pack(std::vector<char>& dataBuf, Message& msg) {
     dataBuf[5] = (id >> 16) & 255;
     dataBuf[6] = (id >> 8) & 255;
     dataBuf[7] = id & 255;
-    for (auto i : msg.getData().toString()) {
+    for (auto i : msg.contentToString()) {
         dataBuf.push_back(i);
     }
-}
-
-//msg打包进ByteBufferStream,得到的string是不可读的,但是可以直接用asio::buffer()发送
-template<typename T>
-void DataPack::pack(zinx_asio::ByteBufferStream<T>& dataBuf, Message& msg) {
-    dataBuf << msg.getMsgLen() << msg.getMsgID();
-    dataBuf << msg.getData().toString();
 }
 
 //Unpack 拆包:读取数据包头
@@ -127,10 +145,10 @@ std::pair<uint32_t, uint32_t> DataPack::unpack(boost::asio::streambuf& dataBuf) 
 
 //拆包:拿到msgLen和msgID
 //Message的data中的前八个字节被取出,并拆包到message的len和id中
-std::pair<uint32_t, uint32_t> DataPack::unpack(Message& msg) {
+std::pair<uint32_t, uint32_t> DataPack::unpack(TCPMessage& msg) {
     uint32_t len;
     uint32_t id;
-    msg.getData() >> len >> id;
+    msg.bufferRef().read(len).read(id);
     if(GlobalObject::maxPackageSize() > 0
             && len > GlobalObject::maxPackageSize()) {
         throw std::logic_error("excess MaxPackageSize");
@@ -171,8 +189,8 @@ void DataPack::unpack(uint32_t &len, uint32_t &id, boost::asio::streambuf& dataB
 
 //拆包:拿到msgLen和msgID
 //Message的data中的前八个字节被取出,并拆包到message的len和id中
-void DataPack::unpack(uint32_t &len, uint32_t &id, Message& msg) {
-    msg.getData() >> len >> id;
+void DataPack::unpack(uint32_t &len, uint32_t &id, TCPMessage& msg) {
+    msg.bufferRef().read(len).read(id);
     if(GlobalObject::maxPackageSize() > 0
             && len > GlobalObject::maxPackageSize()) {
         throw std::logic_error("excess MaxPackageSize");

@@ -1,6 +1,61 @@
 #include <iostream>
-#include <iterator>
+#include <ext/pool_allocator.h>
+
+#include <boost/system/system_error.hpp>
+#include <boost/asio.hpp>
+
+#include "data_pack.hpp"
 #include "byte_buffer.hpp"
+
+//模拟客户端
+void client(boost::asio::io_context& ioc) {
+    printf("=============client start==============\n");
+    boost::asio::ip::tcp::socket socket(ioc);
+    boost::asio::ip::tcp::endpoint endpoint(
+        boost::asio::ip::address::from_string("127.0.0.1"), 8888);
+
+    try {
+        socket.connect(endpoint);
+    } catch(boost::system::system_error& e) {
+        std::cout << e.what() << std::endl;
+    }
+
+    //消息格式uint32-长度|uint32-ID|内容
+    zinx_asio::ByteBuffer<> buffer;
+    std::string s {"This Is Client"};
+    try {
+        for (uint32_t i = 0; i < 5; ++i) {
+            buffer.clear();
+            //写入len和id
+            uint32_t len = s.size();
+            uint32_t id = 0;
+            buffer.write(len).write(id).write(s);
+
+            std::cout << "Send Data Size = " << buffer.size() << std::endl;
+            boost::asio::write(socket, buffer.data(), boost::asio::transfer_exactly(buffer.size()));
+            buffer.clear();
+
+            len = zinx_asio::DataPack().getHeadLen();
+            std::cout << "Read Data Head: " << len << " bytes" << std::endl;
+            boost::asio::read(socket, buffer.prepare(len), boost::asio::transfer_exactly(len));
+            buffer.commit(len);
+            buffer.read(len).read(id);
+
+            std::cout << "Read Data Body: " << len << " bytes" << std::endl;
+            boost::asio::read(socket, buffer.prepare(len), boost::asio::transfer_exactly(len));
+            buffer.commit(len);
+            std::cout <<  "Server send back " << len << " bytes"
+                      << " MsgID = " << id
+                      << " message is " << buffer.toString() << '\n';
+        }
+        socket.shutdown(boost::asio::socket_base::shutdown_send);
+        socket.close();
+    } catch(std::exception& e) {
+        std::cout << e.what() << std::endl;
+        socket.close();
+    }
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -14,6 +69,10 @@ int main(int argc, char *argv[])
     buffer.read((char*)&x, 4);
     std::cout << "x = " << x << std::endl;
     std::cout << "buffer size = " << buffer.size() << std::endl;
+
+    //测试拷贝构造
+    std::cout << "=======测试拷贝构造========" << std::endl;
+    zinx_asio::ByteBuffer<__gnu_cxx::__pool_alloc<char>> buffer2(buffer);
 
     //测试getRawBuffer
     std::cout << "=======测试getRawBuffer========" << std::endl;
@@ -55,6 +114,7 @@ int main(int argc, char *argv[])
     i64++;
     buffer.write(&i64, sizeof(i64));
     std::vector<int64_t> v = buffer.toVector<int64_t>();
+    std::cout << v.size() << std::endl;
     std::copy(v.begin(), v.end(),
               std::ostream_iterator<uint32_t>(std::cout, " "));
     std::cout << '\n';
@@ -116,6 +176,12 @@ int main(int argc, char *argv[])
     std::copy(pair.first, pair.first + pair.second,
               std::ostream_iterator<uint32_t>(std::cout, " "));
     std::cout << '\n';
+
+    //测试网络传输
+    std::cout << "========测试网络传输==========" << '\n';
+    boost::asio::io_context ioc;
+    client(ioc);
+    ioc.run();
 
     return 0;
 }
