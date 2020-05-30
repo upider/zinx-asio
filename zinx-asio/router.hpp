@@ -3,44 +3,87 @@
 
 #include <memory>
 #include <functional>
+#include <boost/asio/ip/udp.hpp>
 
 #include "class_factory.hpp"
-#include "iconnection.hpp"
 
 namespace zinx_asio {//namespace zinx_asio
 
+class Datagram;
 class IMessage;
+class IConnection;
 
-class Router {
+class IRouter {
     public:
-        Router();
-        virtual ~Router ();
+        IRouter();
+        virtual ~IRouter();
+        //tcp message handler
         virtual void preHandle(std::shared_ptr<IConnection> conn,
                                std::shared_ptr<IMessage> msg) = 0;
         virtual void handle(std::shared_ptr<IConnection> conn,
                             std::shared_ptr<IMessage> msg) = 0;
         virtual void postHandle(std::shared_ptr<IConnection> conn,
                                 std::shared_ptr<IMessage> msg) = 0;
+
+        //udp message handler
+        virtual void preHandle(std::shared_ptr<Datagram>,
+                               std::shared_ptr<IMessage> msg) = 0;
+        virtual void handle(std::shared_ptr<Datagram>,
+                            std::shared_ptr<IMessage> msg) = 0;
+        virtual void postHandle(std::shared_ptr<Datagram>,
+                                std::shared_ptr<IMessage> msg) = 0;
 };
 
-/*class Router {*/
-//    public:
-//        Router();
-//        virtual ~Router ();
-//        template<typename ConnectionType>
-//        void preHandle(std::shared_ptr<ConnectionType> conn,
-//                       std::shared_ptr<Message> msg) {}
-//        template<typename ConnectionType>
-//        void handle(std::shared_ptr<ConnectionType> conn,
-//                    std::shared_ptr<Message> msg) {}
-//        template<typename ConnectionType>
-//        void postHandle(std::shared_ptr<ConnectionType> conn,
-//                        std::shared_ptr<Message> msg) {}
-//};
+class ConnectionRouter: public IRouter {
+    public:
+        ConnectionRouter();
+        virtual ~ConnectionRouter();
 
-typedef ClassFactory<std::shared_ptr<Router>,
+        //tcp message handler
+        virtual void preHandle(std::shared_ptr<IConnection> conn,
+                               std::shared_ptr<IMessage> msg) = 0;
+        virtual void handle(std::shared_ptr<IConnection> conn,
+                            std::shared_ptr<IMessage> msg) = 0;
+        virtual void postHandle(std::shared_ptr<IConnection> conn,
+                                std::shared_ptr<IMessage> msg) = 0;
+
+    private:
+        //udp message handler
+        virtual void preHandle(std::shared_ptr<Datagram>,
+                               std::shared_ptr<IMessage> msg);
+        virtual void handle(std::shared_ptr<Datagram>,
+                            std::shared_ptr<IMessage> msg);
+        virtual void postHandle(std::shared_ptr<Datagram>,
+                                std::shared_ptr<IMessage> msg);
+};
+
+class DatagramRouter: public IRouter {
+    public:
+        DatagramRouter();
+        virtual ~DatagramRouter();
+
+	public:
+		//udp message handler
+        virtual void preHandle(std::shared_ptr<IConnection> conn,
+                               std::shared_ptr<IMessage> msg);
+        virtual void handle(std::shared_ptr<IConnection> conn,
+                            std::shared_ptr<IMessage> msg);
+        virtual void postHandle(std::shared_ptr<IConnection> conn,
+                                std::shared_ptr<IMessage> msg);
+
+	private:
+		//tcp message handler
+        virtual void preHandle(std::shared_ptr<Datagram>,
+                               std::shared_ptr<IMessage> msg) = 0;
+        virtual void handle(std::shared_ptr<Datagram>,
+                            std::shared_ptr<IMessage> msg) = 0;
+        virtual void postHandle(std::shared_ptr<Datagram>,
+                                std::shared_ptr<IMessage> msg) = 0;
+};
+
+typedef ClassFactory<std::shared_ptr<IRouter>,
         uint32_t,
-        std::function<std::shared_ptr<Router>(void)>>
+        std::function<std::shared_ptr<IRouter>(void)>>
         RouterClassFactory;
 
 }//namespace zinx_asio

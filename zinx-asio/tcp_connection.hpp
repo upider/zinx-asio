@@ -11,6 +11,7 @@
 
 #include "iconnection.hpp"
 #include "message_manager.hpp"
+#include "data_pack.hpp"
 
 namespace zinx_asio {//namespace zinx_asio
 
@@ -24,7 +25,8 @@ class TCPConnection:
     public std::enable_shared_from_this<TCPConnection>,
     virtual public IConnection {
     public:
-        TCPConnection(ConnectionServer<TCPConnection>*, boost::asio::io_context&, uint32_t, size_t,
+        TCPConnection(ConnectionServer<TCPConnection>*, boost::asio::io_context&,
+                      uint32_t, size_t, uint32_t,
                       std::shared_ptr<ConnManager>, std::shared_ptr<MessageManager>);
         virtual ~TCPConnection ();
         //更新timer截止时间
@@ -89,6 +91,8 @@ class TCPConnection:
         std::atomic_bool isClosed_;
         //是否超时
         std::atomic_bool timeOut_{false};
+        //最大数据包大小
+        DataPack dataPack_;
         //当前connection所属的connManager
         //防止循环引用
         std::weak_ptr<ConnManager> connMgr_wptr;

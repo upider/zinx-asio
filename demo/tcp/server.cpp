@@ -16,7 +16,7 @@
 #include "connection_server.hpp"
 
 //PingRouter 使用ping 测试路由
-class PingRouter: virtual public zinx_asio::Router {
+class PingRouter: virtual public zinx_asio::ConnectionRouter {
     public:
         PingRouter() {
             //用裸指针当做缓冲
@@ -97,7 +97,7 @@ class PingRouter: virtual public zinx_asio::Router {
 };
 
 //PingRouter 使用ping 测试路由
-class HelloRouter: virtual public zinx_asio::Router {
+class HelloRouter: virtual public zinx_asio::ConnectionRouter {
     public:
         HelloRouter() {}
         virtual ~HelloRouter() {}

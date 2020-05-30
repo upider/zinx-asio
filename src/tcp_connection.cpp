@@ -7,7 +7,6 @@
 
 #include "tcp_message.hpp"
 #include "conn_manager.hpp"
-#include "data_pack.hpp"
 #include "tcp_connection.hpp"
 #include "connection_server.hpp"
 
@@ -15,12 +14,14 @@ namespace zinx_asio {//namespace zinx_asio
 
 TCPConnection::TCPConnection(ConnectionServer<TCPConnection>* s,
                              boost::asio::io_context& ioc,
-                             uint32_t id, size_t time,
+                             uint32_t id, size_t time, uint32_t maxPackageSize,
                              std::shared_ptr<ConnManager> cm,
                              std::shared_ptr<MessageManager> mm)
     : belongServer_(s), socket_(ioc), connID_(id),
       maxConnIdleTime_(time), isClosed_(false), connMgr_wptr(cm),
-      routers_ptr(mm), strand_(ioc), timer_(ioc) {}
+      routers_ptr(mm), strand_(ioc), timer_(ioc) {
+    dataPack_.setMaxPackageSize(maxPackageSize);
+}
 
 TCPConnection::~TCPConnection () {}
 
@@ -56,7 +57,7 @@ void TCPConnection::startRead(boost::asio::yield_context yield) {
 
     //创建拆解包对象
     //读取客户端户message head的数据流的前八个字节
-    uint32_t len = DataPack().getHeadLen();
+    uint32_t len = dataPack_.getHeadLen();
     uint32_t id{0};
     char head[len];
 
@@ -74,7 +75,7 @@ void TCPConnection::startRead(boost::asio::yield_context yield) {
     //拆包:读取messageID和Len放进headData
     //解包错误,直接关闭客户端
     try {
-        DataPack().unpack(len, id, head);
+        dataPack_.unpack(len, id, head);
     } catch(const std::exception& e) {
         std::cout << "[Data Unpack Error] " << e.what() << '\n';
         //读取错误或终止时

@@ -1,4 +1,3 @@
-#include <thread>
 #include <iostream>
 
 #include <boost/bind.hpp>
@@ -11,7 +10,7 @@ namespace zinx_asio {//namespace zinx_asio
 MessageManager::MessageManager() {}
 MessageManager::~MessageManager() {}
 
-//doMsgHandler 调度或执行对应的Router
+//doMsgHandler 调度或执行对应的IRouter
 void MessageManager::doMsgHandler(std::shared_ptr<IConnection> conn,
                                   std::shared_ptr<IMessage> msg) const {
     for (auto& r : routerMap_) {
@@ -33,14 +32,36 @@ void MessageManager::doMsgHandler(std::shared_ptr<IConnection> conn,
     }
 }
 
-//addRouter 添加消息执行对应的Router
-void MessageManager::addRouter(uint32_t msgID, std::shared_ptr<Router> router) {
-    auto it = routerMap_.find(msgID);
+//doMsgHandler 调度或执行对应的UDP IRouter
+void MessageManager::doMsgHandler(std::shared_ptr<Datagram> endpoint,
+                                  std::shared_ptr<IMessage> msg) const {
+    for (auto& r : routerMap_) {
+        try {
+            r.second->preHandle(endpoint, msg);
+        } catch(std::exception& e) {
+            std::cout << "DoMsgHandler Error: " << e.what() << std::endl;
+        }
+        try {
+            r.second->handle(endpoint, msg);
+        } catch(std::exception& e) {
+            std::cout << "DoMsgHandler Error: " << e.what() << std::endl;
+        }
+        try {
+            r.second->postHandle(endpoint, msg);
+        } catch(std::exception& e) {
+            std::cout << "DoMsgHandler Error: " << e.what() << std::endl;
+        }
+    }
+}
+
+//addRouter 添加消息执行对应的IRouter
+void MessageManager::addRouter(uint32_t id, std::shared_ptr<IRouter> router) {
+    auto it = routerMap_.find(id);
     if (it != routerMap_.end()) {
         printf("Router has been added\n");
         return;
     }
-    routerMap_[msgID] = router;
+    routerMap_[id] = router;
     printf("Router has been added\n");
 }
 

@@ -235,7 +235,7 @@ cd demo
 ## TODO
 1. 准备抽象出多个接口(纯虚类)[完成]               
 2. 优化asio的buffer[完成] 
-3. 支持UDP,HTTP(HTTP1.1,websocket)         
+3. 支持HTTP(HTTP1.1,websocket)[UDP完成]         
 4. 实现rpc功能(可能借助protobuf)
 5. 日志功能
 6. 支持SSL

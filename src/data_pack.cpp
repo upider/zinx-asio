@@ -13,7 +13,7 @@ std::size_t DataPack::maxPackageSize_ = 512;
 DataPack::DataPack() {}
 DataPack::~DataPack () {}
 
-void DataPack::setMaxPackegeSize(std::size_t size) {
+void DataPack::setMaxPackageSize(std::size_t size) {
     maxPackageSize_ = size;
 }
 

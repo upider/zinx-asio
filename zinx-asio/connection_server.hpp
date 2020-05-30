@@ -6,20 +6,16 @@
 #include <iostream>
 #include <cassert>
 
-#include "conn_manager.hpp"
-#include "utils.hpp"
-
 #include <boost/asio/ip/address.hpp>
-#include <boost/asio/thread_pool.hpp>
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/ip/udp.hpp>
 
+#include "conn_manager.hpp"
 #include "connection_option.hpp"
 #include "data_pack.hpp"
+#include "io_context_pool.hpp"
 #include "iserver.hpp"
 #include "message_manager.hpp"
-#include "io_context_pool.hpp"
+#include "utils.hpp"
 
 namespace zinx_asio {//namespace zinx_asio
 
@@ -43,7 +39,7 @@ class ConnectionServer: public IServer {
 
     public:
         //accept
-        void doAccept(size_t acceptorIndex);
+        void doAccept(size_t);
         //start 开始
         void start();
         //listen
@@ -115,6 +111,8 @@ class ConnectionServer: public IServer {
         uint32_t maxConnNum_;
         //连接最大空闲时间
         uint32_t maxConnIdleTime_;
+        //最大数据包大小
+        uint32_t maxPackageSize_;
         //router ID与名称
         std::map<uint32_t, std::string> routerMap_;
         //Connection
@@ -148,6 +146,7 @@ ConnectionServer<ConnectionType>::ConnectionServer(uint32_t ioWorkerPoolSize,
       name_(name),
       maxConnNum_(maxConnNum),
       maxConnIdleTime_(maxConnIdleTime),
+      maxPackageSize_(maxPackageSize),
       connMgr_ptr(new ConnManager()),
       connOption_ptr(new ConnectionOption()) {
 
@@ -156,7 +155,6 @@ ConnectionServer<ConnectionType>::ConnectionServer(uint32_t ioWorkerPoolSize,
     if (taskWorkerQueueNum_ > 0) {
         taskWorkerPool_.reset(new io_context_pool(taskWorkerPoolSize_, taskWorkerQueueNum_));
     }
-    DataPack().setMaxPackegeSize(maxPackageSize);
 }
 
 template<typename ConnectionType>
@@ -180,11 +178,11 @@ void ConnectionServer<ConnectionType>::doAccept(size_t acceptorIndex) {
 
     //生成新的套接字
     auto newConn_ = std::make_shared<ConnectionType>(this, ioWorkerPool_->getCtx(),
-                    cid_++, maxConnIdleTime_,
+                    cid_++, maxConnIdleTime_, maxPackageSize_,
                     connMgr_ptr, msgMgr);
 
     //开始等待连接
-    std::cout << "Acceptor " << acceptorIndex << " start Accepting TCPConnection" << std::endl;
+    std::cout << "Acceptor " << acceptorIndex << " start Accepting TCPConnection" << '\n';
     acceptors_[acceptorIndex]->async_accept(newConn_->getSocket(),
     [this, acceptorIndex, newConn_](boost::system::error_code ec) {
         if (ec) {
@@ -342,6 +340,12 @@ void ConnectionServer<ConnectionType>::callOnConnStop(Conn_ptr conn) {
     } catch(...) {
         throw;
     }
+}
+
+//RouterMap 返回连接管理模块
+template<typename ConnectionType>
+std::map<uint32_t, std::string> ConnectionServer<ConnectionType>::getRouters() {
+    return routerMap_;
 }
 
 //getConnMgr 返回连接管理模块

@@ -13,7 +13,7 @@ class DataPack {
         DataPack();
         virtual ~DataPack ();
 
-        static void setMaxPackegeSize(std::size_t);
+        static void setMaxPackageSize(std::size_t);
 
         ///pack方法：Message中的数据不变
         static void pack(const void* source, void* dest, std::size_t size);

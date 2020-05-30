@@ -48,9 +48,9 @@ int main(void)
     std::cout << "Client Read data" << std::endl;
 
     boost::asio::async_read(socket, buffer.prepare(len), boost::asio::transfer_exactly(len),
-    [&socket, &buffer, &len, &id](const boost::system::error_code & ec, std::size_t length) {
+    [&socket, &buffer, &len, &id](boost::system::error_code ec, std::size_t length) {
         if (ec) {
-            std::cout << "Read Error: " << ec.message() << std::endl;
+            std::cout << "Read Error: " << ec.message() << '\n';
             socket.shutdown(boost::asio::socket_base::shutdown_send);
             socket.close();
             return -1;
@@ -64,6 +64,8 @@ int main(void)
         std::cout <<  "Server send back " << len << " bytes"
                   << " MsgID = " << id
                   << " message is " << buffer.toString() << '\n';
+
+        return 0;
     });
 
     ioc.run();
