@@ -114,6 +114,9 @@ void DatagramServer::serve() {
     }
 
     ioWorkerPool_->joinAll();
+    if (taskWorkerPool_) {
+        taskWorkerPool_->joinAll();
+    }
 }
 
 //stop 停止
@@ -126,7 +129,6 @@ void DatagramServer::stop() {
     }
 
     if (taskWorkerPool_) {
-        taskWorkerPool_->joinAll();
         taskWorkerPool_->stop();
     }
 
