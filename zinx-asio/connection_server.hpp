@@ -6,6 +6,7 @@
 #include <iostream>
 #include <cassert>
 
+#include <boost/asio/signal_set.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/tcp.hpp>
 
@@ -32,6 +33,7 @@ class ConnectionServer: public IServer {
                          uint32_t taskWorkerQueueNum = 0,
                          uint32_t taskWorkerPoolSize = 0,
                          const std::string& name = "",
+                         const std::string& version = "",
                          uint32_t maxPackageSize = 512,
                          uint32_t maxConnNum = 1024,
                          uint32_t maxConnIdleTime = 0);
@@ -130,6 +132,8 @@ class ConnectionServer: public IServer {
         std::vector<std::unique_ptr<acceptor>> acceptors_;
         //连接id(序号)
         uint32_t cid_ = 0;
+        //stopped
+        std::atomic_bool stopped_{false};
         //多个监听端口
         std::list<boost::asio::ip::tcp::endpoint> endpoints_;
 };
@@ -137,13 +141,14 @@ class ConnectionServer: public IServer {
 template<typename ConnectionType>
 ConnectionServer<ConnectionType>::ConnectionServer(uint32_t ioWorkerPoolSize,
         uint32_t taskWorkerQueueNum, uint32_t taskWorkerPoolSize,
-        const std::string& name, uint32_t maxPackageSize,
+        const std::string& name, const std::string& version, uint32_t maxPackageSize,
         uint32_t maxConnNum, uint32_t maxConnIdleTime)
     : ioWorkerPoolSize_(ioWorkerPoolSize),
       taskWorkerPoolSize_(taskWorkerPoolSize),
       taskWorkerQueueNum_(taskWorkerQueueNum),
       ioWorkerPool_(new io_context_pool(ioWorkerPoolSize_, ioWorkerPoolSize_)),
       name_(name),
+      version_(version),
       maxConnNum_(maxConnNum),
       maxConnIdleTime_(maxConnIdleTime),
       maxPackageSize_(maxPackageSize),
@@ -187,6 +192,7 @@ void ConnectionServer<ConnectionType>::doAccept(size_t acceptorIndex) {
     [this, acceptorIndex, newConn_](boost::system::error_code ec) {
         if (ec) {
             std::cout << "ERROR: " << ec.message() << std::endl;
+            acceptors_[acceptorIndex]->close();
             return;
         }
         //设置最大连接数
@@ -201,6 +207,9 @@ void ConnectionServer<ConnectionType>::doAccept(size_t acceptorIndex) {
             newConn_->start();
             //给套接字设置套接字选项
             connOption_ptr->setAllSocketOptions(newConn_);
+        }
+        if (stopped_.load(std::memory_order_relaxed)) {
+            return;
         }
         doAccept(acceptorIndex);
     });
@@ -247,8 +256,7 @@ void ConnectionServer<ConnectionType>::listen() {
 //start 开始
 template<typename ConnectionType>
 void ConnectionServer<ConnectionType>::start() {
-    printf("[zinx] %s%s Start\n",
-           name_.data(), version_.data());
+    printf("[zinx] %s%s Start\n", name_.data(), version_.data());
     std::cout << "Max Connection num  = " << GlobalObject::maxConnNum() << std::endl;
     std::cout << "IOWorkerPoolSize    = " << ioWorkerPool_->iocNum() << std::endl;
     if (taskWorkerPool_ == nullptr) {
@@ -264,24 +272,19 @@ void ConnectionServer<ConnectionType>::start() {
     }
 }
 
-//stop 停止
-template<typename ConnectionType>
-void ConnectionServer<ConnectionType>::stop() {
-    //资源回收
-    printf("[zinx] has been stopped\n");
-    if (taskWorkerPool_->threadNum() > 0) {
-        taskWorkerPool_->joinAll();
-    }
-    if (taskWorkerPool_->threadNum() > 0) {
-        taskWorkerPool_->stop();
-    }
-    ioWorkerPool_->stop();
-    connMgr_ptr->clear();
-}
-
 //server 运行
 template<typename ConnectionType>
 void ConnectionServer<ConnectionType>::serve() {
+    //添加signal
+    boost::asio::signal_set signals(ioWorkerPool_->getCtx(), SIGINT, SIGTERM);
+    signals.async_wait(
+    [this](const boost::system::error_code & error, int signal_number) {
+        if (error) {
+            std::cout << "Signal Error: " << error.message() << '\n';
+        }
+        stop();
+    });
+
     //启动acceptor
     start();
 
@@ -295,8 +298,29 @@ void ConnectionServer<ConnectionType>::serve() {
     }
 
     ioWorkerPool_->joinAll();
+    if (taskWorkerPool_) {
+        taskWorkerPool_->joinAll();
+    }
 }
 
+//stop 停止
+template<typename ConnectionType>
+void ConnectionServer<ConnectionType>::stop() {
+    stopped_.store(true, std::memory_order_relaxed);
+    //资源回收
+    printf("[Zinx] %s:%s Start Stopping...\n", name_.data(), version_.data());
+
+    if (taskWorkerPool_) {
+        taskWorkerPool_->stop();
+    }
+    for (auto& i : acceptors_) {
+        i->close();
+    }
+    ioWorkerPool_->stop();
+    connMgr_ptr->stop();
+    connMgr_ptr->clear();
+    printf("[Zinx] %s:%s Stopped\n", name_.data(), version_.data());
+}
 
 //设置空闲连接时间
 template<typename ConnectionType>

@@ -19,6 +19,7 @@ class DatagramServer: public IServer {
                        uint32_t taskWorkerQueueNum = 0,
                        uint32_t taskWorkerPoolSize = 0,
                        const std::string& name = "",
+                       const std::string& version = "",
                        uint32_t maxPackageSize = 512);
         virtual ~DatagramServer();
 
@@ -55,10 +56,10 @@ class DatagramServer: public IServer {
         bool running_;
         //服务器名称
         std::string name_;
-        //最大数据包大小
-        uint32_t maxPackageSize_;
         //版本
         std::string version_;
+        //最大数据包大小
+        uint32_t maxPackageSize_;
         //router ID与名称
         std::map<uint32_t, std::string> routerMap_;
         std::shared_ptr<MessageManager> routers_ptr;

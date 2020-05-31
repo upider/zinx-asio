@@ -154,10 +154,12 @@ void TCPConnection::stop() {
     socket_.cancel();
     socket_.close();
     auto p = connMgr_wptr.lock();
-    if(p != nullptr) {
+    if(p != nullptr && !p->isStopped()) {
         p->delConn(self);
+    } else if(p != nullptr && p->isStopped()) {
+        std::cout << "Connection Manager is stopped" << '\n';
     } else {
-        std::cout << "No." << connID_ << " TCPConnection connMgr_wptr is nullptr" << std::endl;
+        std::cout << "No." << connID_ << " TCPConnection connMgr_wptr is nullptr" << '\n';
     }
 }
 

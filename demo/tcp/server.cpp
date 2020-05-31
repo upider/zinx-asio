@@ -124,7 +124,7 @@ class HelloRouter: virtual public zinx_asio::ConnectionRouter {
 
 int main() {
     //创建server
-    zinx_asio::ConnectionServer<zinx_asio::TCPConnection> s(1, 1, 2);
+    zinx_asio::ConnectionServer<zinx_asio::TCPConnection> s(1, 1, 2, "ConnectionServer", "0.1");
     //设置空闲连接时间
     s.setMaxConnIdleTime(5);
 

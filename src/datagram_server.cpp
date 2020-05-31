@@ -1,4 +1,5 @@
 #include <cassert>
+#include <boost/asio/signal_set.hpp>
 
 #include "datagram.hpp"
 #include "datagram_server.hpp"
@@ -9,12 +10,13 @@ namespace zinx_asio {//namespace zinx_asio
 
 DatagramServer::DatagramServer(uint32_t ioWorkerPoolSize, uint32_t taskWorkerQueueNum,
                                uint32_t taskWorkerPoolSize, const std::string& name,
-                               uint32_t maxPackageSize)
+                               const std::string& version, uint32_t maxPackageSize)
     : ioWorkerPoolSize_(ioWorkerPoolSize),
       taskWorkerPoolSize_(taskWorkerPoolSize),
       taskWorkerQueueNum_(taskWorkerQueueNum),
       ioWorkerPool_(new io_context_pool(ioWorkerPoolSize_, ioWorkerPoolSize_)),
       name_(name),
+      version_(version),
       maxPackageSize_(maxPackageSize),
       routers_ptr(new MessageManager()),
       connOption_ptr(new ConnectionOption()) {
@@ -87,25 +89,18 @@ void DatagramServer::start() {
     }
 }
 
-//stop 停止
-void DatagramServer::stop() {
-    //资源回收
-    for (auto i : sockets_) {
-        i->cancel();
-        i->close();
-    }
-    printf("[zinx] has been stopped\n");
-    if (taskWorkerPool_->threadNum() > 0) {
-        taskWorkerPool_->joinAll();
-    }
-    if (taskWorkerPool_->threadNum() > 0) {
-        taskWorkerPool_->stop();
-    }
-    ioWorkerPool_->stop();
-}
-
 //server 运行
 void DatagramServer::serve() {
+    //添加signal
+    boost::asio::signal_set signals(ioWorkerPool_->getCtx(), SIGINT, SIGTERM);
+    signals.async_wait(
+    [this](const boost::system::error_code & error, int signal_number) {
+        if (error) {
+            std::cout << "Signal Error: " << error.message() << '\n';
+        }
+        stop();
+    });
+
     //启动acceptor
     start();
 
@@ -119,6 +114,25 @@ void DatagramServer::serve() {
     }
 
     ioWorkerPool_->joinAll();
+}
+
+//stop 停止
+void DatagramServer::stop() {
+    printf("[Zinx] %s:%s Start Stopping...\n", name_.data(), version_.data());
+    //资源回收
+    for (auto i : sockets_) {
+        i->cancel();
+        i->close();
+    }
+
+    if (taskWorkerPool_) {
+        taskWorkerPool_->joinAll();
+        taskWorkerPool_->stop();
+    }
+
+    ioWorkerPool_->stop();
+
+    printf("[Zinx] %s:%s Stopped\n", name_.data(), version_.data());
 }
 
 //addRouter 添加路由

@@ -56,4 +56,11 @@ void ConnManager::clear() {
     connsLock.unlock();
 }
 
+void ConnManager::stop() {
+    stopped_.store(true, std::memory_order_relaxed);
+}
+
+bool ConnManager::isStopped() {
+    return stopped_.load(std::memory_order_relaxed);
+}
 }//namespace zinx_asio

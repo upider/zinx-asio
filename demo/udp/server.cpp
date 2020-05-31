@@ -31,7 +31,7 @@ class PingRouter: virtual public zinx_asio::DatagramRouter {
 
 int main(void)
 {
-    zinx_asio::DatagramServer server;
+    zinx_asio::DatagramServer server(1, 0, 0, "DatagramServer", "0.1");
     RegisterRouterClass(0, PingRouter);
     server.addRouter(0, "PingRouter");
     server.addEndPoint("127.0.0.1", 8888);

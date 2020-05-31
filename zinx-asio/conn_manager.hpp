@@ -22,12 +22,15 @@ class ConnManager {
         uint32_t size();
         //clear 清除所有连接
         void clear();
+        void stop();
+        bool isStopped();
 
     private:
         //连接集合
         std::map<uint32_t, std::shared_ptr<IConnection>> conns_;
         //连接集合的保护锁
         boost::shared_mutex connsLock;
+        std::atomic_bool stopped_{false};
 };
 
 }//namespace zinx_asio
