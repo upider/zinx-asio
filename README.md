@@ -204,8 +204,9 @@ Message包装成Request---->Connection对应的的消息管理模块调用Router
 6. ConnectionServer:TCP服务器主体,Connection类型作为模板参数,来支持不同的协议,
    目前只有tcp协议
 
-## 编译demo
+## 编译,运行和退出demo
 
+### 编译
 1. 进入项目文件夹
 2. mkdir build
 3. cd build
@@ -215,6 +216,7 @@ Message包装成Request---->Connection对应的的消息管理模块调用Router
 编译产生的可执行文件在bin目录,目前还不能指定配置文件目录和log目录,
 所以Server执行时只能和demo在同一目录(配置文件在demo/conf)
 
+### 运行
 可以执行以下命令
 ```sh
 cd demo
@@ -222,11 +224,14 @@ cd demo
 ```
 
 或者将可执行文件拷贝到bin目录,执行
+
 ```sh
 ./server
 ```
-
 客户端可以在任意目录执行
+
+### 退出
+ctrl+c可以直接退出服务端,或者kill pid.程序会完成清理工作
 
 ## 注意
 `[Writer exits error] Bad file descriptor`和
