@@ -59,8 +59,7 @@ class ByteBuffer {
         mutable_buffers_type prepare(std::size_t n) {
             auto const len = size();
             if(len > max_size_ || n > (max_size_ - len))
-                BOOST_THROW_EXCEPTION(std::length_error{
-                "basic_flat_buffer too long"});
+                BOOST_THROW_EXCEPTION(std::length_error{"ByteBuffer too long"});
             if(n <= distance(out_, end_)) {
                 // existing capacity is sufficient
                 last_ = out_ + n;

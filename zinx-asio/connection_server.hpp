@@ -79,7 +79,7 @@ class ConnectionServer: public IServer {
         //getConnMgr 返回连接管理模块
         std::shared_ptr<ConnManager> getConnMgr();
         //getConnOptionMgr 返回连接管理模块
-        std::shared_ptr<ConnectionOption> getConnOptionMgr();
+        std::shared_ptr<ConnOptions> getConnOptionMgr();
         //RouterMap 返回连接管理模块
         std::map<uint32_t, std::string> getRouters();
         //getTaskWorkerPool 返回连接管理模块
@@ -122,7 +122,7 @@ class ConnectionServer: public IServer {
         //连接管理模块
         std::shared_ptr<ConnManager> connMgr_ptr;
         //套接字选项管理模块
-        std::shared_ptr<ConnectionOption> connOption_ptr;
+        std::shared_ptr<ConnOptions> connOption_ptr;
         //Connection创建连接之后自动调用
         std::function<void(Conn_ptr)> onConnStart;
         //Connection销毁之前自动调用
@@ -153,7 +153,7 @@ ConnectionServer<ConnectionType>::ConnectionServer(uint32_t ioWorkerPoolSize,
       maxConnIdleTime_(maxConnIdleTime),
       maxPackageSize_(maxPackageSize),
       connMgr_ptr(new ConnManager()),
-      connOption_ptr(new ConnectionOption()) {
+      connOption_ptr(new ConnOptions()) {
 
     assert(taskWorkerPoolSize_ >= taskWorkerQueueNum_ && taskWorkerQueueNum_ >= 0);
     assert(ioWorkerPoolSize_ != 0);
@@ -206,7 +206,7 @@ void ConnectionServer<ConnectionType>::doAccept(size_t acceptorIndex) {
             connMgr_ptr->addConn(newConn_);
             newConn_->start();
             //给套接字设置套接字选项
-            connOption_ptr->setAllSocketOptions(newConn_);
+            connOption_ptr->setConnOptions(newConn_);
         }
         if (stopped_.load(std::memory_order_relaxed)) {
             return;
@@ -380,7 +380,7 @@ std::shared_ptr<ConnManager> ConnectionServer<ConnectionType>::getConnMgr() {
 
 //getConnOptionMgr 返回连接管理模块
 template<typename ConnectionType>
-std::shared_ptr<ConnectionOption> ConnectionServer<ConnectionType>::getConnOptionMgr() {
+std::shared_ptr<ConnOptions> ConnectionServer<ConnectionType>::getConnOptionMgr() {
     return connOption_ptr;
 }
 

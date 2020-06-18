@@ -39,7 +39,7 @@ class DatagramServer: public IServer {
         //RouterMap 返回连接管理模块
         virtual std::map<uint32_t, std::string> getRouters();
         //getConnOptionMgr 返回连接管理模块
-        std::shared_ptr<ConnectionOption> getConnOptionMgr();
+        std::shared_ptr<ConnOptions> getConnOptionMgr();
 
     private:
         //ioWorker池的worker数量
@@ -64,7 +64,7 @@ class DatagramServer: public IServer {
         std::map<uint32_t, std::string> routerMap_;
         std::shared_ptr<MessageManager> routers_ptr;
         //套接字选项管理模块
-        std::shared_ptr<ConnectionOption> connOption_ptr;
+        std::shared_ptr<ConnOptions> connOption_ptr;
         //要连接的udp socket
         using socket = boost::asio::ip::udp::socket;
         std::vector<std::shared_ptr<socket>> sockets_;

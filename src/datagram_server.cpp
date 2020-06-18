@@ -19,7 +19,7 @@ DatagramServer::DatagramServer(uint32_t ioWorkerPoolSize, uint32_t taskWorkerQue
       version_(version),
       maxPackageSize_(maxPackageSize),
       routers_ptr(new MessageManager()),
-      connOption_ptr(new ConnectionOption()) {
+      connOption_ptr(new ConnOptions()) {
 
     assert(taskWorkerPoolSize_ >= taskWorkerQueueNum_ && taskWorkerQueueNum_ >= 0);
     assert(ioWorkerPoolSize_ != 0);
@@ -153,7 +153,7 @@ std::map<uint32_t, std::string> DatagramServer::getRouters() {
 }
 
 //getConnOptionMgr 返回连接管理模块
-std::shared_ptr<ConnectionOption> DatagramServer::getConnOptionMgr() {
+std::shared_ptr<ConnOptions> DatagramServer::getConnOptionMgr() {
     return connOption_ptr;
 }
 

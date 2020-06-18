@@ -153,8 +153,10 @@ int main() {
 
     //开始监听
     s.listen();
+
     //给套接字设置套接字选项,要在listen之后
-    s.getConnOptionMgr()->addSocketOption(zinx_asio::ReuseAddr, true);
+    boost::asio::socket_base::keep_alive option(true);
+    s.getConnOptionMgr()->setOption(option);
 
     //设置acceptor属性,也要在listen之后
     boost::asio::ip::tcp::acceptor::reuse_address option1(true);
