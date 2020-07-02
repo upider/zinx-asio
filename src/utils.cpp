@@ -1,6 +1,5 @@
 #include <fstream>
 #include <iostream>
-#include <nlohmann/json.hpp>
 #include "utils.hpp"
 
 namespace zinx_asio {//namespace zinx_asio
@@ -22,29 +21,6 @@ uint32_t GlobalObject::TaskWorkerQueueNum_{0}; //任务worker池的io_context数
 
 GlobalObject::GlobalObject() {}
 GlobalObject::~GlobalObject() {}
-
-//解析配置文件
-void GlobalObject::parseConf(const std::string& conf) {
-    //read a JSON file
-    std::ifstream is(conf);
-    nlohmann::json obj;
-    is >> obj;
-
-    ServerName_ = obj["ServerName"];
-
-    ZinxVersion_ = obj["ZinxVersion"];
-    MaxConnNum_ = obj["MaxConnNum"];
-    MaxPackageSize_ = obj["MaxPackageSize"];
-    IOWorkerPoolSize_ = obj["IOWorkerPoolSize"];
-    TaskWorkerPoolSize_ = obj["TaskWorkerPoolSize"];
-    TaskWorkerQueueNum_ = obj["TaskWorkerQueueNum"];
-    MaxConnIdleTime_ = obj["MaxConnIdleTime"];
-    for (size_t i = 0; i < obj["EndPoints"].size(); ++i) {
-        std::string host = obj["EndPoints"][i]["Host"];
-        int port = obj["EndPoints"][i]["Port"];
-        EndPoints_.emplace(host, port);
-    }
-}
 
 std::string GlobalObject::serverName() {
     return ServerName_;

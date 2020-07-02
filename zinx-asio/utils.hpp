@@ -13,9 +13,6 @@ class GlobalObject {
         GlobalObject();
         ~GlobalObject();
 
-        //解析配置文件
-        static void parseConf(const std::string&);
-
         //返回配置
         //返回服务器名称
         static std::string serverName();
@@ -62,8 +59,6 @@ class GlobalObject {
     private:
         //Server配置
         static std::string ServerName_; //Server name
-        //监听的所有地址
-        //static std::list<boost::asio::ip::tcp::endpoint> EndPoints;
         static std::multimap<std::string, int> EndPoints_;
         //Connection最空闲大连接时间-秒,0表示不设置连接时间
         static uint32_t MaxConnIdleTime_;
